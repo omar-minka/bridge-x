@@ -1,0 +1,17 @@
+version: '3.4'
+
+volumes:
+  postgres-bridge-volume:
+
+services:
+  postgres-bridge:
+    image: postgres:14.5
+    restart: on-failure
+    ports:
+      - '5433:5432'
+    environment:
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: badpassword
+      POSTGRES_DB: bridge
+    volumes:
+      - postgres-bridge-volume:/var/lib/postgresql/data

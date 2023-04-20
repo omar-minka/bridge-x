@@ -1,0 +1,32 @@
+{
+  "extends": "@tsconfig/node16/tsconfig.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "module": "commonjs",
+    "allowJs": true,
+    "checkJs": false,
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "declaration": true,
+    "incremental": true,
+    "removeComments": true,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "baseUrl": ".",
+    "strict": false,
+    "target": "ES6"
+  },
+  "include": ["**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "test",
+    "dist",
+    "__mocks__",
+    "**/*spec.ts",
+    "jest.config.ts"
+  ]
+}

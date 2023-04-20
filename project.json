@@ -1,0 +1,73 @@
+{
+  "name": "bridge-x",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "apps/bridge-x/src",
+  "projectType": "application",
+  "targets": {
+    "build": {
+      "executor": "@nrwl/node:webpack",
+      "outputs": ["{options.outputPath}"],
+      "options": {
+        "outputPath": "dist/apps/bridge-x",
+        "main": "apps/bridge-x/src/main.ts",
+        "tsConfig": "apps/bridge-x/tsconfig.app.json",
+        "assets": ["apps/bridge-x/src/.env"]
+      },
+      "configurations": {
+        "test": {
+          "optimization": true
+        },
+        "production": {
+          "optimization": true,
+          "generatePackageJson": true,
+          "assets": []
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nrwl/node:node",
+      "options": {
+        "buildTarget": "bridge-x:build",
+        "port": 8801
+      },
+      "configurations": {
+        "test": {
+          "buildTarget": "bridge-x:build:test"
+        },
+        "production": {
+          "buildTarget": "bridge-x:build:production",
+          "inspect": false,
+          "watch": false
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nrwl/linter:eslint",
+      "outputs": ["{options.outputFile}"],
+      "options": {
+        "lintFilePatterns": ["apps/bridge-x/**/*.ts"]
+      }
+    },
+    "test": {
+      "executor": "@nrwl/jest:jest",
+      "outputs": ["coverage/apps/bridge-x"],
+      "options": {
+        "jestConfig": "apps/bridge-x/jest.config.ts",
+        "coverageDirectory": "coverage/apps/bridge-x",
+        "passWithNoTests": true
+      }
+    },
+    "build-docker": {
+      "executor": "nx:run-commands",
+      "options": {
+        "commands": [
+          "docker build -f ./Dockerfile.base -t ledger-monorepo .",
+          "docker build -f ./docker/Dockerfile.dist -t ledger-dist --build-arg BASE_IMAGE=ledger-monorepo .",
+          "docker build -f ./docker/Dockerfile.app -t ledger-app --build-arg BASE_IMAGE=ledger-dist --build-arg APP=bridge-x ."
+        ],
+        "cwd": ".",
+        "parallel": false
+      }
+    }
+  }
+}
