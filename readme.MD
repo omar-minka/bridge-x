@@ -12,7 +12,11 @@
 Connect to staging ledger
 
 ```bash
-minka server connect https://ika.ldg-stg.one/api/v2
+minka server connect
+```
+With
+```bash
+Server url: https://ika.ldg-stg.one/api/v2
 ```
 
 Start an ngrok tunnel
