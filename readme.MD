@@ -1,10 +1,12 @@
 # Steps
 
-1- Copy src/example.env to src/.env and replace values
+1- Run `yarn install`
 
-2- Start database with `yarn start:infra`
+2- Copy src/example.env to src/.env and replace values
+ 
+3- Start database with `yarn start:infra`
 
-3- Start bridge with `yarn start`
+4- Start bridge with `yarn start`
 
 
 # Connecting to ledger
