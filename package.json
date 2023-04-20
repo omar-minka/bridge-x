@@ -2,7 +2,8 @@
   "name": "@minka/bridge-x",
   "scripts": {
     "start": "ts-node src/main.ts",
-    "start:infra": "docker-compose -f ./docker-compose.yaml up --detach postgres-bridge"
+    "start:infra": "docker-compose -f ./docker-compose.yaml up --detach postgres-bridge",
+    "stop:infra": "docker-compose -f ./docker-compose.yaml stop postgres-bridge"
   },
   "dependencies": {
     "@minka/bridge-sdk": "^1.0.0-rc.2",
