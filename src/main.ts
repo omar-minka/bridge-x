@@ -55,7 +55,7 @@ const ledgerSdk = new LedgerSdk({
   },
 })
 
-const database = new Database()
+const database = Database.getInstance()
 seed(database)
 
 const coopCentralApiClient = new CoopcentralApiService(config)

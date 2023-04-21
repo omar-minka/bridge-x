@@ -1,9 +1,20 @@
 
+
 export class Database {
     private database: Map<string, Map<string, any>>
+
+    private static instance: Database
     
     constructor() {
         this.database = new Map
+    }
+
+    static getInstance() {
+        if (this.instance) {
+            this.instance = new Database()
+        }
+
+        return this.instance
     }
 
     from(tableName: string) {
