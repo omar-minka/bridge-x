@@ -15,9 +15,13 @@ import { SyncDebitBankAdapter } from './adapters/sync-debit.adapter'
 import { AsyncCreditBankAdapter } from './adapters/async-credit.adapter'
 import { AsyncDebitBankAdapter } from './adapters/async-debit.adapter'
 
+import { BitcoinNetwork } from './btc/main'
+
+BitcoinNetwork.startListening()
+
 // NOTE(alen): set to 'true' to use async bank
 // adapters, which utilize job suspend feature
-const asyncBankAdapter = false
+const asyncBankAdapter = true
 
 const dataSource: DataSourceOptions = {
   host: config.TYPEORM_HOST,

@@ -9,7 +9,11 @@ import {
   PrepareResult,
   PrepareSucceededResult,
   TransactionContext,
+  PrepareFailedResult,
 } from '@minka/bridge-sdk'
+import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
+import { BitcoinNetwork } from '../btc/main'
+import moment from 'moment'
 
 const suspendedJobs = new Set()
 
@@ -25,12 +29,35 @@ const suspendedJobs = new Set()
  * results.
  */
 export class AsyncDebitBankAdapter extends IBankAdapter {
-  prepare(context: TransactionContext): Promise<PrepareResult> {
+  async prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('debit prepare called')
-    console.log(JSON.stringify(context, null, 2))
+    console.log( context.intent.handle, context.intent.custom?.txnId )
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
+
+      const intent = context.intent
+      const txnId = intent.custom?.txnId
+      const status = await BitcoinNetwork.getTransactionStatus(txnId)
+      if( !status ){
+        const result: PrepareFailedResult = {
+          status: JobResultStatus.Failed,
+          error: {
+            reason: LedgerErrorReason.BridgeFraudDetected,
+            detail: 'The transaction was not recognized by the bridge.',
+          },
+          custom: {
+            app: 'bridge-x',
+            method: 'AsyncCreditBankAdapter.prepare',
+          }
+        }
+        Promise.resolve(result)
+        return
+      }
+      if( status !== 'confirmed' ){
+        return this.suspend(context, 10)
+      }
+
 
       const result: PrepareSucceededResult = {
         status: JobResultStatus.Prepared,
@@ -43,13 +70,13 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
 
       return Promise.resolve(result)
     } else {
-      return this.suspend(context)
+      return this.suspend(context, 10)
     }
   }
 
   abort(context: TransactionContext): Promise<AbortResult> {
     console.log('debit abort called')
-    console.log(JSON.stringify(context, null, 2))
+    console.log( context.intent.handle, context.intent.custom?.txnId )
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
@@ -65,13 +92,13 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
 
       return Promise.resolve(result)
     } else {
-      return this.suspend(context)
+      return this.suspend(context, 10)
     }
   }
 
   commit(context: TransactionContext): Promise<CommitResult> {
     console.log('debit commit called')
-    console.log(JSON.stringify(context, null, 2))
+    console.log( context.intent.handle, context.intent.custom?.txnId )
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
@@ -87,7 +114,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
 
       return Promise.resolve(result)
     } else {
-      return this.suspend(context)
+      return this.suspend(context, 10)
     }
   }
 
@@ -99,15 +126,16 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     suspendedJobs.delete(context.job.handle)
   }
 
-  protected suspend(context: TransactionContext) {
+  protected suspend(context: TransactionContext, seconds: number) {
     const job = context.job.handle
 
-    console.log(`suspending indefinitely job ${job}`)
+    console.log(`suspending job ${job} for ${seconds} seconds`)
 
     suspendedJobs.add(job)
 
     const suspendedResult: JobSuspendedResult = {
       status: JobResultStatus.Suspended,
+      suspendedUntil: moment().utc().add(seconds, 'seconds').toDate(),
     }
 
     return Promise.resolve(suspendedResult)

@@ -5,16 +5,15 @@ import {
   CommitSucceededResult,
   IBankAdapter,
   JobResultStatus,
+  PrepareFailedResult,
   PrepareResult,
   PrepareSucceededResult,
   TransactionContext,
 } from '@minka/bridge-sdk'
+import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
+import { ClaimAction } from '@minka/bridge-sdk/ledger-sdk/types'
+import { TransferClaim } from '@minka/bridge-sdk/types'
 
-/**
- * Demo implementation of sync credit bank adapter.
- * Methods will log incoming transaction context and
- * return successful results.
- */
 export class SyncCreditBankAdapter extends IBankAdapter {
   prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('credit prepare called')
@@ -22,13 +21,13 @@ export class SyncCreditBankAdapter extends IBankAdapter {
 
     const result: PrepareSucceededResult = {
       status: JobResultStatus.Prepared,
-      coreId: '111',
+      coreId: '3123123',
       custom: {
         app: 'bridge-x',
-        method: 'SyncCreditBankAdapter.prepare',
+        method: 'SyncCreditBankAdapter.prepare',  
       },
     }
-
+    console.log('credit prepare result', result)
     return Promise.resolve(result)
   }
 
