@@ -48,6 +48,9 @@ export async function prepare(
       }
     } catch (error) {
       // do nothing
+      console.log(
+          `[debit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+      );
     }
 
     return;
@@ -90,7 +93,7 @@ export async function prepare(
     }
 
     console.log(
-      `[job:${jobId}:prepare] failed with some uknnown error: ${error.message}`
+      `[debit:job:${jobId}:prepare] failed with some uknnown error: ${error.message}`
     );
     job.status = "FAILED";
     job.error = error;
@@ -136,6 +139,9 @@ export async function abort(
       }
     } catch (error) {
       // do nothing
+      console.log(
+          `[debitL:job:${jobId}:abort] error checking transaction status: ${error.message}`
+      );
     }
 
     return;

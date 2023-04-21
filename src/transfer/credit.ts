@@ -41,6 +41,9 @@ export async function prepare(
       }
     } catch (error) {
       // do nothing
+      console.log(
+          `[credit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+      );
     }
 
     return;
@@ -114,6 +117,9 @@ export async function abort(
       }
     } catch (error) {
       // do nothing
+      console.log(
+          `[credit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+      );
     }
 
     return;
