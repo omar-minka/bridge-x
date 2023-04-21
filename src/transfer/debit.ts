@@ -23,24 +23,31 @@ export async function prepare(
   }
 
   if (job.status === "RUNNING") {
-    console.log(`[job:${jobId}:prepare] checking transaction status on coopcentral`)
+    console.log(
+      `[job:${jobId}:prepare] checking transaction status on coopcentral`
+    );
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
-      transactionRequest
-    );
+    try {
+      const transactionStatus =
+        await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
-    console.log(`[job:${jobId}:prepare] transaction status is: ${transactionStatus.status}`)
+      console.log(
+        `[job:${jobId}:prepare] transaction status is: ${transactionStatus.status}`
+      );
 
-    if (transactionStatus.status === "COMPLETED") {
-      job.status = "COMPLETED";
-      return;
-    }
+      if (transactionStatus.status === "COMPLETED") {
+        job.status = "COMPLETED";
+        return;
+      }
 
-    if (transactionStatus.status === "ERROR") {
-      job.status = "FAILED";
-      return;
+      if (transactionStatus.status === "ERROR") {
+        job.status = "FAILED";
+        return;
+      }
+    } catch (error) {
+      // do nothing
     }
 
     return;
@@ -64,7 +71,11 @@ export async function prepare(
       transactionRequest
     );
 
-    console.log(`[job:${jobId}:prepare] created transaction on coopcentral: ${JSON.stringify(bankTransaction)}`);
+    console.log(
+      `[job:${jobId}:prepare] created transaction on coopcentral: ${JSON.stringify(
+        bankTransaction
+      )}`
+    );
     job.status = "COMPLETED";
   } catch (error) {
     if (error instanceof ServiceError) {
@@ -78,7 +89,9 @@ export async function prepare(
       }
     }
 
-    console.log(`[job:${jobId}:prepare] failed with some uknnown error: ${error.message}`)
+    console.log(
+      `[job:${jobId}:prepare] failed with some uknnown error: ${error.message}`
+    );
     job.status = "FAILED";
     job.error = error;
   }
@@ -102,20 +115,27 @@ export async function abort(
   }
 
   if (job.status === "RUNNING") {
-    console.log(`[job:${jobId}:abort] checking transaction status on coopcentral`)
+    console.log(
+      `[job:${jobId}:abort] checking transaction status on coopcentral`
+    );
 
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
-      transactionRequest
-    );
+    try {
+      const transactionStatus =
+        await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
-    console.log(`[job:${jobId}:abort] transaction status is: ${transactionStatus.status}`)
+      if (transactionStatus.status === "COMPLETED") {
+        console.log(
+          `[job:${jobId}:abort] transaction status is: ${transactionStatus.status}`
+        );
 
-    if (transactionStatus.status === "COMPLETED") {
-      job.status = "COMPLETED";
-      return;
+        job.status = "COMPLETED";
+        return;
+      }
+    } catch (error) {
+      // do nothing
     }
 
     return;
@@ -139,7 +159,11 @@ export async function abort(
       transactionRequest
     );
 
-    console.log(`[job:${jobId}:abort] created transaction on coopcentral: ${JSON.stringify(bankTransaction)}`);
+    console.log(
+      `[job:${jobId}:abort] created transaction on coopcentral: ${JSON.stringify(
+        bankTransaction
+      )}`
+    );
     job.status = "COMPLETED";
   } catch (error) {
     if (error instanceof ServiceError) {
