@@ -10,14 +10,14 @@ import {
   ServerOptions,
 } from '@minka/bridge-sdk'
 import sleep from 'sleep-promise'
-import { SyncCreditBankAdapter } from './adapters/sync-credit.adapter'
-import { SyncDebitBankAdapter } from './adapters/sync-debit.adapter'
 import { AsyncCreditBankAdapter } from './adapters/async-credit.adapter'
 import { AsyncDebitBankAdapter } from './adapters/async-debit.adapter'
-
-// NOTE(alen): set to 'true' to use async bank
-// adapters, which utilize job suspend feature
-const asyncBankAdapter = false
+import { LedgerSdk } from '@minka/ledger-sdk'
+import {createSoapClient} from "./soap-client";
+import {CoopcentralApiService} from "./coopcentral-api-service";
+import { register } from './api'
+import express from 'express'
+import bodyParser from 'body-parser'
 
 const dataSource: DataSourceOptions = {
   host: config.TYPEORM_HOST,
@@ -43,6 +43,19 @@ const ledger: LedgerClientOptions = {
   },
 }
 
+const ledgerSdk = new LedgerSdk({
+  ledger: config.LEDGER_HANDLE,
+  server: config.LEDGER_SERVER,
+  timeout: 15000,
+  verifyResponseProofs: true,
+  signer: {
+    format: 'ed25519-raw',
+    public: config.LEDGER_PUBLIC_KEY
+  },
+})
+
+const coopCentralApiClient = new CoopcentralApiService(config)
+
 const bootstrapServer = async (processors: string[]) => {
   const server = ServerBuilder.init()
     .useDataSource({ ...dataSource, migrate: true })
@@ -59,13 +72,8 @@ const bootstrapServer = async (processors: string[]) => {
 }
 
 const bootstrapProcessor = async (handle: string) => {
-  const creditAdapter = asyncBankAdapter
-    ? new AsyncCreditBankAdapter()
-    : new SyncCreditBankAdapter()
-
-  const debitAdapter = asyncBankAdapter
-    ? new AsyncDebitBankAdapter()
-    : new SyncDebitBankAdapter()
+  const creditAdapter = new AsyncCreditBankAdapter()
+  const debitAdapter = new AsyncDebitBankAdapter(ledgerSdk, coopCentralApiClient)
 
   const processor = ProcessorBuilder.init()
     .useDataSource(dataSource)
@@ -82,6 +90,14 @@ const bootstrapProcessor = async (handle: string) => {
   await processor.start(options)
 }
 
+const bootstrapApi = async() => {
+  const app = express()
+
+  app.use(bodyParser.json())
+
+  await register(config, ledgerSdk, app)
+}
+
 const boostrap = async () => {
   const processors = ['proc-0']
 
@@ -92,6 +108,8 @@ const boostrap = async () => {
   for (const handle of processors) {
     await bootstrapProcessor(handle)
   }
+
+  await bootstrapApi()
 }
 
 boostrap()

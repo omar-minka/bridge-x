@@ -16,4 +16,23 @@ export const config = cleanEnv(process.env, {
     default: 100,
     desc: 'Database connections limit',
   }),
+  COOPCENTRAL_ENTITY: str(),
+  COOPCENTRAL_USER: str(),
+  COOPCENTRAL_KEY1: str(),
+  COOPCENTRAL_KEY2: str(),
+  COOPCENTRAL_PASSWORD: str(),
+  COOPCENTRAL_URL: str(),
+  COOPCENTRAL_VIRTUAL_ACCOUNT: num(),
+  COOPCENTRAL_OPERATION_ORIGIN: num(),
+  COOPCENTRAL_API_KEY: str(),
+
+  BANK_NAME: str(),
+  BANK_BICFI: num(),
+  BANK_WALLET_HANDLE: str(),
+  BANK_SIGNER_HANDLE: str(),
+  BANK_KEEPER_PUBLIC_KEY: str(),
+  BANK_KEEPER_PRIVATE_KEY: str(),
+  BANK_KEEPER_SCHEME: str(),
+
+  SERVICE_API_PORT: num(),
 })

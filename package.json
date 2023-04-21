@@ -7,10 +7,17 @@
   },
   "dependencies": {
     "@minka/bridge-sdk": "^1.0.0-rc.2",
-    "moment": "^2.29.4"
+    "@types/express": "^4.17.17",
+    "body-parser": "^1.20.2",
+    "express": "^4.18.2",
+    "lodash": "^4.17.21",
+    "moment": "^2.29.4",
+    "soap": "^1.0.0",
+    "xml-js": "^1.6.11"
   },
   "devDependencies": {
     "@types/node": "^18.15.11",
+    "nodemon": "^2.0.22",
     "ts-node": "^10.9.1",
     "typescript": "^5.0.4"
   }

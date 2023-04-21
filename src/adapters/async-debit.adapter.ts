@@ -4,14 +4,34 @@ import {
   CommitResult,
   CommitSucceededResult,
   IBankAdapter,
-  JobResultStatus,
-  JobSuspendedResult,
+  JobResultStatus, JobSuspendedResult,
   PrepareResult,
-  PrepareSucceededResult,
   TransactionContext,
 } from '@minka/bridge-sdk'
+import {LedgerSdk} from "@minka/ledger-sdk";
+import {CoopcentralApiService} from "../coopcentral-api-service";
+import {AccountDetailsRequest, CheckBankAccountRequest, CreateBankTransactionRequest, ServiceError } from "../models";
+import { config } from '../config'
+import {PrepareFailedResult} from "@minka/bridge-sdk/src/bank/bank-adapter.service";
+import {LedgerWallet} from "@minka/bridge-sdk/types";
 
-const suspendedJobs = new Set()
+const suspendedJobs = new Map()
+
+function createBankTransactionRequest(context: TransactionContext, wallet: any) {
+  const transactionRequest = new CreateBankTransactionRequest()
+  transactionRequest.idTxEntidad = context.intent.handle
+  transactionRequest.valorTx = `${context.entry.amount}`
+  transactionRequest.descripTx = 'Testing'
+
+  const virtualAccount = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`
+
+  transactionRequest.nomOrig = wallet.custom.name || 'Test'
+  transactionRequest.docProdOrig = wallet.custom.document
+  transactionRequest.prodOrig = wallet.custom.account
+  transactionRequest.prodDest = virtualAccount
+
+  return transactionRequest
+}
 
 /**
  * Demo implementation of async debit bank adapter
@@ -25,14 +45,104 @@ const suspendedJobs = new Set()
  * results.
  */
 export class AsyncDebitBankAdapter extends IBankAdapter {
-  prepare(context: TransactionContext): Promise<PrepareResult> {
-    console.log('debit prepare called')
-    console.log(JSON.stringify(context, null, 2))
 
-    if (this.isContinue(context)) {
+  constructor(private readonly ledger: LedgerSdk, private readonly coopcentralApi: CoopcentralApiService) {
+    super();
+
+
+  }
+
+  async prepareAsync(context: TransactionContext) {
+    const jobId = context.job.handle
+    const job = suspendedJobs.get(jobId)
+
+
+    if (!job || job.status === 'RUNNING') {
+      return
+    }
+
+    job.status = 'RUNNING'
+
+    const { wallet } = await this.ledger.wallet.read(context.entry.source)
+
+    try {
+      let bankAccountResult = await this.coopcentralApi.checkBankAccount(
+          new CheckBankAccountRequest(
+              wallet.custom.account,
+              wallet.custom.document,
+              wallet.custom.documentType,
+          ),
+      )
+
+      let bankAccountDetails = await this.coopcentralApi.fetchAccountDetails(
+          new AccountDetailsRequest(
+              wallet.custom.document,
+              wallet.custom.documentType,
+          ),
+      )
+
+      console.log(JSON.stringify(bankAccountDetails), JSON.stringify(bankAccountResult))
+    } catch (error) {
+      job.status = 'FAILED'
+      job.error = error
+    }
+
+    job.status = 'COMPLETED'
+  }
+
+  async commitAsync(context: TransactionContext) {
+    const jobId = context.job.handle
+    const job = suspendedJobs.get(jobId)
+
+    if (!job) {
+      return
+    }
+
+    if (job.status === 'RUNNING') {
+      // call coopcentral transaction status
+      return
+    }
+
+    job.status = 'RUNNING'
+
+    const { wallet } = await this.ledger.wallet.read(context.entry.source)
+
+    try {
+      const transactionRequest = createBankTransactionRequest(context, wallet)
+      const bankTransaction = await this.coopcentralApi.createBankTransaction(
+          transactionRequest,
+      )
+
+      console.log(JSON.stringify(bankTransaction))
+      job.status = 'COMPLETED'
+    } catch (error) {
+      if (error instanceof ServiceError) {
+        if (error.isPending()) {
+          return
+        }
+      }
+
+      job.status = 'PENDING'
+    }
+  }
+
+  async prepare(context: TransactionContext): Promise<PrepareResult> {
+    console.log(JSON.stringify(context))
+
+    const jobId = context.job.handle
+    const job = suspendedJobs.get(jobId)
+
+    if (!job) {
+      suspendedJobs.set(jobId, {
+        context,
+        status: 'PENDING',
+      })
+    }
+
+    if (this.isContinue(context) && job?.status === 'COMPLETED') {
       this.cleanSuspended(context)
 
-      const result: PrepareSucceededResult = {
+      return {
         status: JobResultStatus.Prepared,
         coreId: '112',
         custom: {
@@ -40,10 +150,22 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
           method: 'AsyncDebitBankAdapter.prepare',
         },
       }
+    }
 
-      return Promise.resolve(result)
-    } else {
-      return this.suspend(context)
+    if (job?.status === 'FAILED') {
+      this.cleanSuspended(context)
+
+      return {
+        status: JobResultStatus.Failed,
+        error: job.error,
+      } as PrepareFailedResult
+    }
+
+    this.prepareAsync(context)
+
+    return {
+      status: JobResultStatus.Suspended,
+      suspendedUntil: new Date(Date.now() + 5000)
     }
   }
 
@@ -69,25 +191,37 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     }
   }
 
-  commit(context: TransactionContext): Promise<CommitResult> {
-    console.log('debit commit called')
-    console.log(JSON.stringify(context, null, 2))
+  async commit(context: TransactionContext): Promise<CommitResult> {
+    console.log(JSON.stringify(context))
 
-    if (this.isContinue(context)) {
+    const jobId = context.job.handle
+    const job = suspendedJobs.get(jobId)
+
+    if (!job) {
+      suspendedJobs.set(jobId, {
+        context,
+        status: 'PENDING',
+      })
+    }
+
+    if (this.isContinue(context) && job?.status === 'COMPLETED') {
       this.cleanSuspended(context)
 
-      const result: CommitSucceededResult = {
+      return {
         status: JobResultStatus.Committed,
-        coreId: '889',
+        coreId: '112',
         custom: {
           app: 'bridge-x',
-          method: 'AsyncDebitBankAdapter.commit',
+          method: 'AsyncDebitBankAdapter.prepare',
         },
-      }
+      } as CommitResult
+    }
 
-      return Promise.resolve(result)
-    } else {
-      return this.suspend(context)
+    this.commitAsync(context)
+
+    return {
+      status: JobResultStatus.Suspended,
+      suspendedUntil: new Date(Date.now() + 10000)
     }
   }
 
@@ -104,7 +238,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
 
     console.log(`suspending indefinitely job ${job}`)
 
-    suspendedJobs.add(job)
+    suspendedJobs.set(job, context)
 
     const suspendedResult: JobSuspendedResult = {
       status: JobResultStatus.Suspended,
