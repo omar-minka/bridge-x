@@ -27,12 +27,17 @@ export async function prepare(
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const status = await this.coopcentralApi.checkTransactionStatus(
+    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
       transactionRequest
     );
 
-    if (status === "COMPLETED") {
+    if (transactionStatus.status === "COMPLETED") {
       job.status = "COMPLETED";
+      return;
+    }
+
+    if (transactionStatus.status === "ERROR") {
+      job.status = "FAILED";
       return;
     }
 
@@ -93,11 +98,11 @@ export async function abort(
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const status = await this.coopcentralApi.checkTransactionStatus(
+    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
       transactionRequest
     );
 
-    if (status === "COMPLETED") {
+    if (transactionStatus.status === "COMPLETED") {
       job.status = "COMPLETED";
       return;
     }
