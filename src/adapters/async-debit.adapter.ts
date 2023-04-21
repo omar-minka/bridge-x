@@ -21,7 +21,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult> {
-    console.log("prepare called with", context);
+    console.log("prepare called with", JSON.stringify(context));
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
@@ -72,7 +72,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async abort(context: TransactionContext): Promise<AbortResult> {
-    console.log("debit abort called");
+    console.log("debit abort called", JSON.stringify(context));
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
@@ -111,7 +111,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async commit(context: TransactionContext): Promise<CommitResult> {
-    console.log("debit commit called");
+    console.log("debit commit called", JSON.stringify(context));
 
     return {
       status: JobResultStatus.Committed,

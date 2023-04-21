@@ -10,7 +10,7 @@ export class Database {
     }
 
     static getInstance() {
-        if (this.instance) {
+        if (!this.instance) {
             this.instance = new Database()
         }
 
@@ -22,10 +22,10 @@ export class Database {
             .get(tableName)
 
         if (!table) {
-           table = this.database.set(tableName, new Map<string, any>())
+           this.database.set(tableName, new Map<string, any>())
         }
 
-        return table
+        return this.database.get(tableName)
     }
 
     get(tableName: string, id: string) {
