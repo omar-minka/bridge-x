@@ -79,7 +79,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
         }
       }
 
-      job.status = "ERROR";
+      job.status = "FAILED";
       job.error = error;
     }
   }
