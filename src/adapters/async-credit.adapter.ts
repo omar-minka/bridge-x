@@ -6,16 +6,17 @@ import {
   IBankAdapter,
   JobResultStatus,
   JobSuspendedResult,
+  PrepareFailedResult,
   PrepareResult,
   PrepareSucceededResult,
   TransactionContext,
 } from '@minka/bridge-sdk'
 import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
-import { ContextualLogger } from '@minka/bridge-sdk/logger'
 import { ClaimAction, TransferClaim } from '@minka/bridge-sdk/types'
 import moment from 'moment'
 import { config } from '../config'
-import Web3 from 'web3'
+import { ethereumNetwork } from '../btc/main'
+
 
 const suspendedJobs = new Set()
 
@@ -27,96 +28,84 @@ const suspendedJobs = new Set()
  * will return successful results.
  */
 export class AsyncCreditBankAdapter extends IBankAdapter {
-
-  protected web3: Web3
-  protected logger: ContextualLogger
-
-  constructor() {
-    super()
-    this.web3 = new Web3(config.ETH_WEBSOCKET_URL)
-    this.logger = new ContextualLogger({
-      prefixes: ['ETH_BRIDGE']
-    })
-  }
-  
   async prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('credit prepare called')
     console.log(JSON.stringify(context, null, 2))
-
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
-      const { entry: { target, amount, symbol } } = context
-      if(symbol === 'eth') {
-
-      // TODO validate regex to enable to withdraw to external wallets 
-      const regex = /^eth:(.*)$/;
-      const { intent: { claims, custom } } = context
-
-      const bridgeClaim = claims.find((claim) => {
-        const [_, externalAddress] = (claim as TransferClaim).source.match(regex);
-        console.log(claim)
-        return claim.action === ClaimAction.Transfer && 
-          claim.target === target && 
-          claim.symbol === 'eth' &&
-          this.web3.utils.isAddress(externalAddress)
-      }) as TransferClaim
-
-      if(bridgeClaim) {
-        const [_, externalAddress] = (bridgeClaim as TransferClaim).source.match(regex);
-        try {
-          const nonce =  await this.web3.eth.getTransactionCount(config.BRIDGE_ETH_PUBLIC_KEY, 'latest');
-
-          const transaction = {
-            to: externalAddress,
-            value: amount,
-            gas: (custom && custom.gas) || config.ETH_DEFAULT_GAS,
-            nonce: nonce
-          };
-          const signedTx = await this.web3.eth.accounts.signTransaction(transaction, config.BRIDGE_ETH_SECRET_KEY);
-        
-          const blockchainTransaction = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction)
-          console.log("🎉 The hash of your transaction is: ", blockchainTransaction.transactionHash, "\n Check Alchemy's Mempool to view the status of your transaction!");
-          console.log(blockchainTransaction)
-          const result: PrepareSucceededResult = {
-            status: JobResultStatus.Prepared,
-            coreId: blockchainTransaction.transactionHash,
+      const intent = context.intent
+      const claims = intent.claims
+      // Claims validation
+      let requiredBalance = 0
+      let txns : any[] = []
+      for(const claim of claims) {
+        let error : PrepareFailedResult['error'];
+        if( claim.action !== ClaimAction.Transfer ){
+          error = {
+            reason: LedgerErrorReason.BridgeAccountLimitExceeded,
+            detail: 'Only Transfer is supported',
+          }
+        } else if( claim.symbol !== 'eth' ){
+          error = {
+            reason: LedgerErrorReason.BridgeIntentUnrelated,
+            detail: 'Only ETH is supported',
+          }
+        } else if( await ethereumNetwork.validateAddress(claim.source) === false ){
+          error = {
+            reason: LedgerErrorReason.BridgeAccountNotFound,
+            detail: 'Invalid eth address',
+          }
+        }
+        if( error ){
+          const result: PrepareFailedResult = {
+            status: JobResultStatus.Failed,
+            error,
             custom: {
               app: config.BRIDGE_APP,
-              method: 'AsyncCreditBankAdapter.prepare',
-            },
+              method: 'SyncCreditBankAdapter.prepare',
+            }
           }
           return Promise.resolve(result)
-        } catch(err) {
-          console.log("❗Something went wrong while submitting the transaction:", err?.message)
-
-          return Promise.resolve({
-            status: JobResultStatus.Failed,
-            custom: {
-              app: config.BRIDGE_APP,
-              method: 'AsyncDebitBankAdapter.prepare',
-            },
-            error: {
-              detail: "Couldn't create transaction in blockchain" + err?.message,
-              reason: LedgerErrorReason.BridgeUnexpectedCoreError
-            }
-          })
         }
-      } else {
-        return Promise.resolve({
-          status: JobResultStatus.Failed,
-          custom: {
-            app: config.BRIDGE_APP,
-            method: 'AsyncDebitBankAdapter.prepare',
-          },
-          error: {
-            detail: "Invalid ethereum address",
-            reason: LedgerErrorReason.BridgeAccountNotFound
-          }
+        requiredBalance += claim.amount
+        txns.push({
+          to: await ethereumNetwork.validateAddress((claim as TransferClaim).target),
+          amount: claim.amount
         })
       }
-    }
+      console.log('Transactions to do', txns)
+      // Balance validation
+      const balance = await ethereumNetwork.checkBalance()
+      if( balance < requiredBalance ){
+        const result: PrepareFailedResult = {
+          status: JobResultStatus.Failed,
+          error: {
+            reason: LedgerErrorReason.BridgeAccountInsufficientBalance,
+            detail: `Insufficient balance. Required ${requiredBalance}, available ${balance}`,
+          },
+          custom: {
+            app: config.BRIDGE_APP,
+            method: 'SyncCreditBankAdapter.prepare',
+          }
+        }
+        return Promise.resolve(result)
+      }
+      console.log('Balance is', balance, 'required', requiredBalance)
+      // Send the transaction back to the testnet here
+      for(const txn of txns){
+        await ethereumNetwork.sendTransaction(txn.to, txn.amount)
+      }
+      const result: PrepareSucceededResult = {
+        status: JobResultStatus.Prepared,
+        coreId: '111',
+        custom: {
+          app: config.BRIDGE_APP,
+          method: 'AsyncCreditBankAdapter.prepare',
+        },
+      }
+      return Promise.resolve(result)
     } else {
-      return this.suspend(context, 5)
+      return this.suspend(context, 10)
     }
   }
 

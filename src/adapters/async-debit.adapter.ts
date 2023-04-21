@@ -9,11 +9,12 @@ import {
   PrepareResult,
   PrepareSucceededResult,
   TransactionContext,
+  PrepareFailedResult,
 } from '@minka/bridge-sdk'
 import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
+import { ethereumNetwork } from '../btc/main'
 import moment from 'moment'
 import { config } from '../config'
-import Web3 from 'web3'
 
 const suspendedJobs = new Set()
 
@@ -29,78 +30,50 @@ const suspendedJobs = new Set()
  * results.
  */
 export class AsyncDebitBankAdapter extends IBankAdapter {
-  
-  protected web3: Web3
-  
-  constructor() {
-    super()
-    this.web3 = new Web3(config.ETH_WEBSOCKET_URL)
-  }
-
   async prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('debit prepare called')
-    console.log(JSON.stringify(context, null, 2))
+    console.log( context.intent.handle, context.intent.custom?.txnId )
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
-      
-      if(context.intent.custom) {
-        const { txnId } = context.intent.custom 
-        const re = /[0-9A-Fa-f]{6}/g;
-        if(re.test(txnId)) {
-          try {
-            const transactionReceipt = await this.web3.eth.getTransactionReceipt(txnId)
-   
-            if(transactionReceipt) {
-              const result: PrepareSucceededResult = {
-                status: JobResultStatus.Prepared,
-                coreId: txnId,
-                custom: {
-                  app: config.BRIDGE_APP,
-                  method: 'AsyncDebitBankAdapter.prepare',
-                }
-              }
-              return Promise.resolve(result)
-            } else {
-              return this.suspend(context, 10)
-            } 
-          } catch(err) {
-            return this.suspend(context, 10)
-          } 
-        } else {
-          return Promise.resolve({
-            status: JobResultStatus.Failed,
-            custom: {
-              app: config.BRIDGE_APP,
-              method: 'AsyncDebitBankAdapter.prepare',
-            },
-            error: {
-              detail: "Invalid transaction hash",
-              reason: LedgerErrorReason.BridgeIntentUnrelated
-            }
-          })
-        }
-      } else {
-        return Promise.resolve({
+
+      const intent = context.intent
+      const txnId = intent.custom?.txnId
+      const status = await ethereumNetwork.getTransactionStatus(txnId)
+      if( !status ){
+        const result: PrepareFailedResult = {
           status: JobResultStatus.Failed,
+          error: {
+            reason: LedgerErrorReason.BridgeFraudDetected,
+            detail: 'The transaction was not recognized by the bridge.',
+          },
           custom: {
             app: config.BRIDGE_APP,
-            method: 'AsyncDebitBankAdapter.prepare',
-          },
-          error: {
-            detail: "Couldn't find transaction in blockchain",
-            reason: LedgerErrorReason.BridgeIntentUnrelated
+            method: 'AsyncCreditBankAdapter.prepare',
           }
-        })
+        }
+        return Promise.resolve(result)
       }
+      if( status !== 'confirmed' ){
+        return this.suspend(context, 10)
+      }
+      const result: PrepareSucceededResult = {
+        status: JobResultStatus.Prepared,
+        coreId: txnId,
+        custom: {
+          app: config.BRIDGE_APP,
+          method: 'AsyncDebitBankAdapter.prepare',
+        },
+      }
+      return Promise.resolve(result)
     } else {
-      return this.suspend(context, 2)
+      return this.suspend(context, 10)
     }
   }
 
   abort(context: TransactionContext): Promise<AbortResult> {
     console.log('debit abort called')
-    console.log(JSON.stringify(context, null, 2))
+    console.log( context.intent.handle, context.intent.custom?.txnId )
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
@@ -121,13 +94,13 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
 
       return Promise.resolve(result)
     } else {
-      return this.suspend(context, 2)
+      return this.suspend(context, 10)
     }
   }
 
   commit(context: TransactionContext): Promise<CommitResult> {
     console.log('debit commit called')
-    console.log(JSON.stringify(context, null, 2))
+    console.log( context.intent.handle, context.intent.custom?.txnId )
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)

@@ -14,7 +14,8 @@ import { SyncCreditBankAdapter } from './adapters/sync-credit.adapter'
 import { SyncDebitBankAdapter } from './adapters/sync-debit.adapter'
 import { AsyncCreditBankAdapter } from './adapters/async-credit.adapter'
 import { AsyncDebitBankAdapter } from './adapters/async-debit.adapter'
-import { EthListener } from './listeners/ethereum.listener'
+
+import { ethereumNetwork } from './btc/main'
 
 // NOTE(alen): set to 'true' to use async bank
 // adapters, which utilize job suspend feature
@@ -83,6 +84,10 @@ const bootstrapProcessor = async (handle: string) => {
   await processor.start(options)
 }
 
+const bootstrapListeners = async () => {
+  return [ethereumNetwork]
+}
+
 const boostrap = async () => {
   const processors = ['proc-0']
 
@@ -94,8 +99,11 @@ const boostrap = async () => {
     await bootstrapProcessor(handle)
   }
 
-  const listener = new EthListener()
-  listener.init()
+  const listeners = await bootstrapListeners() 
+
+  for(const listener of listeners) {
+    listener.startListening()
+  }
 }
 
 boostrap()

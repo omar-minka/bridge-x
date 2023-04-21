@@ -16,7 +16,7 @@ import {
  * return successful results.
  */
 export class SyncDebitBankAdapter extends IBankAdapter {
-  prepare(context: TransactionContext): Promise<PrepareResult> {
+   prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('debit prepare called')
     console.log(JSON.stringify(context, null, 2))
 

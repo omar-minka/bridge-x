@@ -21,4 +21,11 @@ export const config = cleanEnv(process.env, {
     default: 100,
     desc: 'Database connections limit',
   }),
+  BTC_ADDRESS: str({ desc: 'BTC address' }),
+  BTC_PRIVATE_KEY: str({ desc: 'BTC address private key' }),
+  BTC_JSON_RPC: str({ desc: 'BTC JSON RPC Server to connect to blockchain' }),
+  WALLET_HANDLE: str({ desc: 'Wallet handle' }),
+  WALLET_PUBLIC_KEY: str({ desc: 'Wallet public key' }),
+  WALLET_SECRET_KEY: str({ desc: 'Wallet private key' }),
+  SYMBOL_FACTOR: num({ desc: 'Symbol factor' }),
 })
