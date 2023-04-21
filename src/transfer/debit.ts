@@ -26,10 +26,11 @@ export async function prepare(
     console.log(
       `[job:${jobId}:prepare] checking transaction status on coopcentral`
     );
-    const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = commandHandle;
 
     try {
+      const transactionRequest = new CheckTransactionStatusRequest();
+      transactionRequest.externalId = commandHandle;
+
       const transactionStatus =
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
@@ -123,15 +124,40 @@ export async function abort(
     return;
   }
 
+  // first check if prepared transaction exists
+  try {
+    const transactionRequest = new CheckTransactionStatusRequest();
+    transactionRequest.externalId = commandHandle;
+
+    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
+      transactionRequest
+    );
+
+    if (transactionStatus.status !== "COMPLETED") {
+      job.status = "COMPLETED";
+      return;
+    }
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      if (error.isRetryable()) {
+        job.status = "COMPLETED";
+        return;
+      }
+    }
+
+    return;
+  }
+
+  const abortCommandHandle = `abort-${commandHandle}`;
   if (job.status === "RUNNING") {
     console.log(
       `[job:${jobId}:abort] checking transaction status on coopcentral`
     );
 
-    const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = commandHandle;
-
     try {
+      const transactionRequest = new CheckTransactionStatusRequest();
+      transactionRequest.externalId = abortCommandHandle;
+
       const transactionStatus =
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
@@ -145,7 +171,7 @@ export async function abort(
       }
     } catch (error) {
       console.log(
-        `[debitL:job:${jobId}:abort] error checking transaction status: ${error.message}`
+        `[debit:job:${jobId}:abort] error checking transaction status: ${error.message}`
       );
 
       if (error instanceof ServiceError) {
@@ -165,7 +191,7 @@ export async function abort(
     const businessData = database.from("business").get(sourceHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
-    transactionRequest.idTxEntidad = commandHandle;
+    transactionRequest.idTxEntidad = abortCommandHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Abort";
     transactionRequest.nomDest = businessData.name || "Test";

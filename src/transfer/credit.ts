@@ -23,10 +23,10 @@ export async function prepare(
   }
 
   if (job.status === "RUNNING") {
-    const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = commandHandle;
-
     try {
+      const transactionRequest = new CheckTransactionStatusRequest();
+      transactionRequest.externalId = commandHandle;
+
       const transactionStatus =
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
@@ -109,11 +109,36 @@ export async function abort(
     return;
   }
 
-  if (job.status === "RUNNING") {
+  // first check if prepared transaction exists
+  try {
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = commandHandle;
 
+    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
+      transactionRequest
+    );
+
+    if (transactionStatus.status !== "COMPLETED") {
+      job.status = "COMPLETED";
+      return;
+    }
+  } catch (error) {
+    if (error instanceof ServiceError) {
+      if (error.isRetryable()) {
+        job.status = "COMPLETED";
+        return;
+      }
+    }
+
+    return;
+  }
+
+  const abortCommandHandle = `abort-${commandHandle}`;
+  if (job.status === "RUNNING") {
     try {
+      const transactionRequest = new CheckTransactionStatusRequest();
+      transactionRequest.externalId = abortCommandHandle;
+
       const transactionStatus =
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
@@ -143,7 +168,7 @@ export async function abort(
     const businessData = database.from("business").get(targetHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
-    transactionRequest.idTxEntidad = commandHandle;
+    transactionRequest.idTxEntidad = abortCommandHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Abort";
     transactionRequest.nomOrig = businessData.name || "Test";
