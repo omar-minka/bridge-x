@@ -2,6 +2,7 @@ import { LedgerSdk } from "@minka/ledger-sdk";
 import { Express } from "express";
 import { AccountDetailsRequest, CheckBankAccountRequest, ServiceError } from "./models";
 import { CoopcentralApiService } from "./coopcentral-api-service";
+import {Database} from "./database";
 
 const coopcentralBridgeName = 'coopcentral'
 const usdFactor = 100
@@ -9,7 +10,7 @@ const usdFactor = 100
 const transfers = new Map()
 
 const buildBusinessWalletHandle = (account) => {
-    return `business:${account}@coopcentral`
+    return `bs:${account}@${coopcentralBridgeName}`
 }
 
 const buildKeyPair = (config) => {
@@ -31,14 +32,14 @@ const getAccessRules = (publicKey) => {
     ]
 }
 
-export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express, coopcentralApi: CoopcentralApiService) => {
+export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express, coopcentralApi: CoopcentralApiService, database: Database) => {
     const keyPair = buildKeyPair(config)
 
     expressApp.post('/v2/business/onboard', async (request, response) => {
         const { account, document, documentType } = request.body
 
         try {
-            const existingBusinessWallet = (await ledgerSdk.wallet.read(buildBusinessWalletHandle(account))).wallet
+            const existingBusinessWallet = database.from('business').get(buildBusinessWalletHandle(account))
 
             if (existingBusinessWallet) {
                 return response.status(400)
@@ -67,44 +68,32 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
                 ),
             )
 
-            console.log(JSON.stringify(bankAccountDetails), JSON.stringify(bankAccountResult))
-
-            let { wallet: businessWallet } = await ledgerSdk.wallet
-                .init()
-                .data({
-                    handle: buildBusinessWalletHandle(account),
-                    custom: {
-                        document,
-                        account,
-                        documentType,
-                    },
-                    bridge: coopcentralBridgeName,
-                    access: getAccessRules(config.BRIDGE_PUBLIC_KEY),
-                })
-                .hash()
-                .sign([
-                    { keyPair }
-                ])
-                .send()
+            database.from('business').set(buildBusinessWalletHandle(account), {
+                account, document, documentType
+            })
 
             return response.status(201)
                 .json({
                     ok: true,
                     wallet: {
-                        handle: businessWallet.handle,
-                        custom: businessWallet.custom,
+                        handle: buildBusinessWalletHandle(account),
+                        custom: {
+                            account,
+                            document,
+                            documentType,
+                        },
                     }
                 })
         } catch (e) {
             if (e instanceof ServiceError) {
-                return response.status(400)
+                return response.status(500)
                     .json({
                         ok: false,
                         error: `${e.code} - ${e.message}`
                     })
             }
 
-            return response.status(400)
+            return response.status(500)
                 .json({
                     ok: false,
                     error: 'Something went wrong creating business wallet'
