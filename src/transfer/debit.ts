@@ -1,5 +1,9 @@
 import { CoopcentralApiService } from "../coopcentral-api-service";
-import { CreateBankTransactionRequest, ServiceError } from "../models";
+import {
+  CreateBankTransactionRequest,
+  CheckTransactionStatusRequest,
+  ServiceError,
+} from "../models";
 import { config } from "../config";
 import { Database } from "../database";
 
@@ -20,7 +24,18 @@ export async function prepare(
   }
 
   if (job.status === "RUNNING") {
-    // call coopcentral transaction status
+    const transactionRequest = new CheckTransactionStatusRequest();
+    transactionRequest.externalId = intentHandle;
+
+    const status = await this.coopcentralApi.checkTransactionStatus(
+      transactionRequest
+    );
+
+    if (status === "COMPLETED") {
+      job.status = "COMPLETED";
+      return;
+    }
+
     return;
   }
 
@@ -75,7 +90,18 @@ export async function abort(
   }
 
   if (job.status === "RUNNING") {
-    // call coopcentral transaction status
+    const transactionRequest = new CheckTransactionStatusRequest();
+    transactionRequest.externalId = intentHandle;
+
+    const status = await this.coopcentralApi.checkTransactionStatus(
+      transactionRequest
+    );
+
+    if (status === "COMPLETED") {
+      job.status = "COMPLETED";
+      return;
+    }
+
     return;
   }
 
