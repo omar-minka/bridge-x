@@ -21,12 +21,18 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult> {
-    console.log("credit prepare called with", JSON.stringify(context));
+    console.log(
+        `[credit:processor:${context.job.handle}:prepare] got a new request to prepare`
+    );
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
 
     if (!job) {
+      console.log(
+          `[credit:processor:${context.job.handle}:prepare] creating a new background task to be executed`
+      );
+
       this.database.set("jobs", jobId, {
         id: jobId,
         context,
@@ -42,6 +48,10 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
     }
 
     if (job?.status === "COMPLETED") {
+      console.log(
+          `[credit:processor:${context.job.handle}:prepare] background task executed. status: PREPARED`
+      );
+
       return {
         status: JobResultStatus.Prepared,
         coreId: "112",
@@ -53,6 +63,10 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
     }
 
     if (job?.status === "FAILED") {
+      console.log(
+          `[credit:processor:${context.job.handle}:prepare] background task executed. status: FAILED`
+      );
+
       return {
         status: JobResultStatus.Failed,
         error: {
@@ -62,6 +76,10 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
       };
     }
 
+    console.log(
+        `[credit:processor:${context.job.handle}:prepare] supending execution of prepare on ledger for 5000 ms`
+    )
+
     return {
       status: JobResultStatus.Suspended,
       suspendedUntil: new Date(Date.now() + 5000),
@@ -69,12 +87,18 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
   }
 
   async abort(context: TransactionContext): Promise<AbortResult> {
-    console.log("credit abort called", JSON.stringify(context));
+    console.log(
+        `[credit:processor:${context.job.handle}:abort] got a new request to abort`
+    );
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
 
     if (!job) {
+      console.log(
+          `[credit:processor:${context.job.handle}:abort] creating a new background task to be executed`
+      );
+
       this.database.set("jobs", jobId, {
         id: jobId,
         context,
@@ -90,6 +114,10 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
     }
 
     if (job?.status === "COMPLETED") {
+      console.log(
+          `[credit:processor:${context.job.handle}:abort] background task executed. status: ABORTED`
+      );
+
       return {
         status: JobResultStatus.Aborted,
         coreId: "667",
@@ -100,6 +128,10 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
       } as AbortSucceededResult;
     }
 
+    console.log(
+        `[credit:processor:${context.job.handle}:abort] supending execution of prepare on ledger for 5000 ms`
+    )
+
     return {
       status: JobResultStatus.Suspended,
       suspendedUntil: new Date(Date.now() + 5000),
@@ -107,7 +139,13 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
   }
 
   async commit(context: TransactionContext): Promise<CommitResult> {
-    console.log("credit commit called", JSON.stringify(context));
+    console.log(
+        `[credit:processor:${context.job.handle}:commit] got a new request to commit`
+    );
+
+    console.log(
+        `[credit:processor:${context.job.handle}:commit] no background task necessary. status: COMMITED`
+    );
 
     return {
       status: JobResultStatus.Committed,

@@ -24,7 +24,7 @@ export async function prepare(
 
   if (job.status === "RUNNING") {
     console.log(
-      `[job:${jobId}:prepare] checking transaction status on coopcentral`
+      `[debit:job:${jobId}:prepare] checking transaction status on coopcentral`
     );
 
     try {
@@ -35,7 +35,7 @@ export async function prepare(
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
       console.log(
-        `[job:${jobId}:prepare] transaction status is: ${transactionStatus.status}`
+        `[job:${jobId}:prepare] transaction status in coopcentral is: ${transactionStatus.status}`
       );
 
       if (transactionStatus.status === "COMPLETED") {
@@ -49,7 +49,7 @@ export async function prepare(
       }
     } catch (error) {
       console.log(
-        `[debit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+        `[debit:job:${jobId}:prepare] error checking transaction status: ${error.message}`
       );
 
       if (error instanceof ServiceError) {
@@ -77,12 +77,16 @@ export async function prepare(
     transactionRequest.prodOrig = businessData.account;
     transactionRequest.prodDest = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
 
+    console.log(
+        `[debit:job:${jobId}:prepare] creating transaction on coopcentral`
+    )
+
     const bankTransaction = await coopCentralApiClient.createBankTransaction(
       transactionRequest
     );
 
     console.log(
-      `[job:${jobId}:prepare] created transaction on coopcentral: ${JSON.stringify(
+      `[debit:job:${jobId}:prepare] created transaction on coopcentral: ${JSON.stringify(
         bankTransaction
       )}`
     );
@@ -121,6 +125,9 @@ export async function abort(
   }
 
   if (job.status === "COMPLETED") {
+    console.log(
+        `[debit:job:${jobId}:abort] job is completed`
+    )
     return;
   }
 
@@ -129,9 +136,17 @@ export async function abort(
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = commandHandle;
 
+    console.log(
+        `[debit:job:${jobId}:abort] checking previous transaction status in coopcentral`
+    )
+
     const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
       transactionRequest
     );
+
+    console.log(
+        `[debit:job:${jobId}:abort] previous transaction status is ${transactionStatus.status}`
+    )
 
     if (transactionStatus.status !== "COMPLETED") {
       job.status = "COMPLETED";
@@ -148,30 +163,34 @@ export async function abort(
     return;
   }
 
+  console.log(
+      `[debit:job:${jobId}:abort] preparing to abort transaction`
+  )
+
   const abortCommandHandle = `abort-${commandHandle}`;
   if (job.status === "RUNNING") {
-    console.log(
-      `[job:${jobId}:abort] checking transaction status on coopcentral`
-    );
-
     try {
       const transactionRequest = new CheckTransactionStatusRequest();
       transactionRequest.externalId = abortCommandHandle;
 
+      console.log(
+          `[debit:job:${jobId}:abort] checking abort transaction status on coopcentral`
+      );
+
       const transactionStatus =
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
-      if (transactionStatus.status === "COMPLETED") {
-        console.log(
-          `[job:${jobId}:abort] transaction status is: ${transactionStatus.status}`
-        );
+      console.log(
+          `[debit:job:${jobId}:abort] abort transaction status is ${transactionStatus.status}`
+      )
 
+      if (transactionStatus.status === "COMPLETED") {
         job.status = "COMPLETED";
         return;
       }
     } catch (error) {
       console.log(
-        `[debit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+        `[debit:job:${jobId}:abort] error checking abort transaction status: ${error.message}`
       );
 
       if (error instanceof ServiceError) {
@@ -184,6 +203,10 @@ export async function abort(
 
     return;
   }
+
+  console.log(
+      `[debit:job:${jobId}:abort] abort transaction should be created`
+  )
 
   job.status = "RUNNING";
 
@@ -199,12 +222,16 @@ export async function abort(
     transactionRequest.prodDest = businessData.account;
     transactionRequest.prodOrig = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
 
+    console.log(
+        `[debit:job:${jobId}:abort] creating abort transaction on coopcentral`
+    )
+
     const bankTransaction = await coopCentralApiClient.createBankTransaction(
       transactionRequest
     );
 
     console.log(
-      `[job:${jobId}:abort] created transaction on coopcentral: ${JSON.stringify(
+      `[debit:job:${jobId}:abort] created abort transaction on coopcentral: ${JSON.stringify(
         bankTransaction
       )}`
     );
