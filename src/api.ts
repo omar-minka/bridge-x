@@ -1,7 +1,10 @@
 import { LedgerSdk } from "@minka/ledger-sdk";
 import { Express } from "express";
+import { AccountDetailsRequest, CheckBankAccountRequest, ServiceError } from "./models";
+import { CoopcentralApiService } from "./coopcentral-api-service";
 
 const coopcentralBridgeName = 'coopcentral'
+const usdFactor = 100
 
 const transfers = new Map()
 
@@ -12,12 +15,23 @@ const buildBusinessWalletHandle = (account) => {
 const buildKeyPair = (config) => {
     return {
         format: 'ed25519-raw',
-        private: config.BRIDGE_SECRET_KEY,
+        secret: config.BRIDGE_SECRET_KEY,
         public: config.BRIDGE_PUBLIC_KEY,
     }
 }
 
-export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express) => {
+const getAccessRules = (publicKey) => {
+    return [
+        {
+            action: 'any',
+            signer: {
+                public: publicKey
+            }
+        },
+    ]
+}
+
+export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express, coopcentralApi: CoopcentralApiService) => {
     const keyPair = buildKeyPair(config)
 
     expressApp.post('/v2/business/onboard', async (request, response, next) => {
@@ -38,6 +52,23 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
         }
 
         try {
+            let bankAccountResult = await coopcentralApi.checkBankAccount(
+                new CheckBankAccountRequest(
+                    account,
+                    document,
+                    documentType,
+                ),
+            )
+
+            let bankAccountDetails = await coopcentralApi.fetchAccountDetails(
+                new AccountDetailsRequest(
+                    document,
+                    documentType,
+                ),
+            )
+
+            console.log(JSON.stringify(bankAccountDetails), JSON.stringify(bankAccountResult))
+
             let { wallet: businessWallet } = await ledgerSdk.wallet
                 .init()
                 .data({
@@ -47,11 +78,12 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
                         account,
                         documentType,
                     },
-                    bridge: coopcentralBridgeName
+                    bridge: coopcentralBridgeName,
+                    access: getAccessRules(config.BRIDGE_PUBLIC_KEY),
                 })
                 .hash()
                 .sign([
-                    keyPair
+                    { keyPair }
                 ])
                 .send()
 
@@ -64,7 +96,15 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
                     }
                 })
         } catch (e) {
-            response.status(400)
+            if (e instanceof ServiceError) {
+                return response.status(400)
+                    .json({
+                        ok: false,
+                        error: `${e.code} - ${e.message}`
+                    })
+            }
+
+            return response.status(400)
                 .json({
                     ok: false,
                     error: 'Something went wrong creating business wallet'
@@ -75,23 +115,35 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
     expressApp.post('/v2/transfer', async (request, response, next) => {
         const { source, target, symbol, amount, custom } = request.body
 
-        // create intent
         try {
-            const intent = ledgerSdk.intent
+            const intentHandle = ledgerSdk.handle.unique()
+
+            const { intent } = await ledgerSdk.intent
                 .init()
                 .data({
-                    source,
-                    target,
-                    symbol,
-                    amount,
+                    handle: intentHandle,
+                    claims: [{
+                        action: 'transfer',
+                        target,
+                        source,
+                        symbol,
+                        amount: amount * usdFactor, // This stands for 100.00$, because usd has a factor of 100
+                    }],
+                    access: getAccessRules(config.BRIDGE_PUBLIC_KEY)
                 })
                 .hash()
                 .sign([
-                    keyPair
+                    { keyPair }
                 ])
                 .send()
 
+            transfers.set(intentHandle, intent)
 
+            return response.status(201)
+                .json({
+                    ok: true,
+                    intent: intent,
+                })
         } catch (e) {
             return response.status(500)
                 .json({

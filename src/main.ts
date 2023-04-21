@@ -95,7 +95,7 @@ const bootstrapApi = async() => {
 
   app.use(bodyParser.json())
 
-  await register(config, ledgerSdk, app)
+  await register(config, ledgerSdk, app, coopCentralApiClient)
 }
 
 const boostrap = async () => {
