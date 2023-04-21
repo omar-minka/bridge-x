@@ -26,18 +26,21 @@ export async function prepare(
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
-      transactionRequest
-    );
+    try {
+      const transactionStatus =
+        await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
-    if (transactionStatus.status === "COMPLETED") {
-      job.status = "COMPLETED";
-      return;
-    }
+      if (transactionStatus.status === "COMPLETED") {
+        job.status = "COMPLETED";
+        return;
+      }
 
-    if (transactionStatus.status === "ERROR") {
-      job.status = "FAILED";
-      return;
+      if (transactionStatus.status === "ERROR") {
+        job.status = "FAILED";
+        return;
+      }
+    } catch (error) {
+      // do nothing
     }
 
     return;
@@ -101,13 +104,16 @@ export async function abort(
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const transactionStatus = await coopCentralApiClient
-      .checkTransactionStatus(transactionRequest)
-      .catch(() => null);
+    try {
+      const transactionStatus =
+        await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
-    if (transactionStatus?.status === "COMPLETED") {
-      job.status = "COMPLETED";
-      return;
+      if (transactionStatus?.status === "COMPLETED") {
+        job.status = "COMPLETED";
+        return;
+      }
+    } catch (error) {
+      // do nothing
     }
 
     return;
