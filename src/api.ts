@@ -34,7 +34,7 @@ const getAccessRules = (publicKey) => {
 export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express, coopcentralApi: CoopcentralApiService) => {
     const keyPair = buildKeyPair(config)
 
-    expressApp.post('/v2/business/onboard', async (request, response, next) => {
+    expressApp.post('/v2/business/onboard', async (request, response) => {
         const { account, document, documentType } = request.body
 
         try {
@@ -112,7 +112,7 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
         }
     })
 
-    expressApp.post('/v2/transfer', async (request, response, next) => {
+    expressApp.post('/v2/transfer', async (request, response) => {
         const { source, target, symbol, amount, custom } = request.body
 
         try {
@@ -149,6 +149,28 @@ export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express
                 .json({
                     ok: false,
                     error: 'Error creating intent in ledger'
+                })
+        }
+    })
+
+    expressApp.get('/v2/transfer/:id', async (request, response) => {
+        const { id } = request.params
+
+        try {
+            const { response: intentResponse } = await ledgerSdk.intent.read(id)
+
+            return response.status(200)
+                .json({
+                    ok: true,
+                    intent: {
+                        data: intentResponse.data,
+                    },
+                })
+        } catch (e) {
+            return response.status(500)
+                .json({
+                    ok: false,
+                    error: e.message
                 })
         }
     })
