@@ -28,8 +28,16 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
 
     if (!job) {
       this.database.set("jobs", jobId, {
+        id: jobId,
         context,
         status: "PENDING",
+        run: prepare,
+        args: [
+          context.job.handle,
+          context.entry.target,
+          context.intent.handle,
+          context.entry.amount
+        ]
       });
     }
 
@@ -58,13 +66,6 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
       };
     }
 
-    prepare(
-      context.job.handle,
-      context.entry.target,
-      context.intent.handle,
-      context.entry.amount
-    );
-
     return {
       status: JobResultStatus.Suspended,
       suspendedUntil: new Date(Date.now() + 5000),
@@ -79,8 +80,16 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
 
     if (!job) {
       this.database.set("jobs", jobId, {
+        id: jobId,
         context,
         status: "PENDING",
+        run: abort,
+        args: [
+          context.job.handle,
+          context.entry.target,
+          context.intent.handle,
+          context.entry.amount
+        ]
       });
     }
 
@@ -96,13 +105,6 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
         },
       } as AbortSucceededResult;
     }
-
-    abort(
-      context.job.handle,
-      context.entry.target,
-      context.intent.handle,
-      context.entry.amount
-    );
 
     return {
       status: JobResultStatus.Suspended,
