@@ -40,10 +40,16 @@ export async function prepare(
         return;
       }
     } catch (error) {
-      // do nothing
       console.log(
-          `[credit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+        `[credit:job:${jobId}:abort] error checking transaction status: ${error.message}`
       );
+
+      if (error instanceof ServiceError) {
+        if (error.isRetryable()) {
+          job.status = "PENDING";
+          return;
+        }
+      }
     }
 
     return;
@@ -116,10 +122,16 @@ export async function abort(
         return;
       }
     } catch (error) {
-      // do nothing
       console.log(
-          `[credit:job:${jobId}:abort] error checking transaction status: ${error.message}`
+        `[credit:job:${jobId}:abort] error checking transaction status: ${error.message}`
       );
+
+      if (error instanceof ServiceError) {
+        if (error.isRetryable()) {
+          job.status = "PENDING";
+          return;
+        }
+      }
     }
 
     return;
