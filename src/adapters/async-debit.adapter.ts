@@ -104,15 +104,16 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     job.status = "RUNNING";
 
     try {
-      const { wallet } = await this.ledger.wallet.read(context.entry.source);
+      const businessData = this.database.from('business')
+          .get(context.entry.source)
 
       const transactionRequest = new CreateBankTransactionRequest();
       transactionRequest.idTxEntidad = context.intent.handle;
       transactionRequest.valorTx = `${context.entry.amount}`;
       transactionRequest.descripTx = "Abort";
-      transactionRequest.nomDest = wallet.custom.name || "Test";
-      transactionRequest.docProdDest = wallet.custom.document;
-      transactionRequest.prodDest = wallet.custom.account;
+      transactionRequest.nomDest = businessData.name || "Test";
+      transactionRequest.docProdDest = businessData.document;
+      transactionRequest.prodDest = businessData.account;
       transactionRequest.prodOrig = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
 
       const bankTransaction = await this.coopcentralApi.createBankTransaction(
