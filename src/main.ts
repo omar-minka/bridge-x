@@ -18,6 +18,7 @@ import {CoopcentralApiService} from "./coopcentral-api-service";
 import { register } from './api'
 import express from 'express'
 import bodyParser from 'body-parser'
+import { seed, Database } from './database'
 
 const dataSource: DataSourceOptions = {
   host: config.TYPEORM_HOST,
@@ -54,6 +55,9 @@ const ledgerSdk = new LedgerSdk({
   },
 })
 
+const database = new Database()
+seed(database)
+
 const coopCentralApiClient = new CoopcentralApiService(config)
 
 const bootstrapServer = async (processors: string[]) => {
@@ -73,7 +77,7 @@ const bootstrapServer = async (processors: string[]) => {
 
 const bootstrapProcessor = async (handle: string) => {
   const creditAdapter = new AsyncCreditBankAdapter()
-  const debitAdapter = new AsyncDebitBankAdapter(ledgerSdk, coopCentralApiClient)
+  const debitAdapter = new AsyncDebitBankAdapter(ledgerSdk, coopCentralApiClient, database)
 
   const processor = ProcessorBuilder.init()
     .useDataSource(dataSource)

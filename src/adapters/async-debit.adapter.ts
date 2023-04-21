@@ -12,7 +12,9 @@ import {CoopcentralApiService} from "../coopcentral-api-service";
 import {CreateBankTransactionRequest, ServiceError} from "../models";
 import {config} from "../config";
 import {LedgerErrorReason} from "@minka/bridge-sdk/errors";
+import {Database} from "../database";
 
+const usdFactor = 100;
 const suspendedJobs = new Map();
 
 /**
@@ -29,7 +31,8 @@ const suspendedJobs = new Map();
 export class AsyncDebitBankAdapter extends IBankAdapter {
   constructor(
     private readonly ledger: LedgerSdk,
-    private readonly coopcentralApi: CoopcentralApiService
+    private readonly coopcentralApi: CoopcentralApiService,
+    private readonly database: Database
   ) {
     super();
   }
@@ -50,15 +53,16 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     job.status = "RUNNING";
 
     try {
-      const { wallet } = await this.ledger.wallet.read(context.entry.source);
+      const businessData = this.database.from('business')
+          .get(context.entry.source)
 
       const transactionRequest = new CreateBankTransactionRequest();
       transactionRequest.idTxEntidad = context.intent.handle;
-      transactionRequest.valorTx = `${context.entry.amount}`;
+      transactionRequest.valorTx = `${context.entry.amount}/${usdFactor}`;
       transactionRequest.descripTx = "Prepare";
-      transactionRequest.nomOrig = wallet.custom.name || "Test";
-      transactionRequest.docProdOrig = wallet.custom.document;
-      transactionRequest.prodOrig = wallet.custom.account;
+      transactionRequest.nomOrig = businessData.name || "Test";
+      transactionRequest.docProdOrig = businessData.document;
+      transactionRequest.prodOrig = businessData.account;
       transactionRequest.prodDest = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
 
       const bankTransaction = await this.coopcentralApi.createBankTransaction(
