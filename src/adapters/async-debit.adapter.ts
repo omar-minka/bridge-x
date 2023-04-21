@@ -21,7 +21,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult> {
-    console.log("prepare called with", JSON.stringify(context));
+    console.log("debit prepare called with", JSON.stringify(context));
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
@@ -94,7 +94,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
           app: "bridge-x",
           method: "AsyncDebitBankAdapter.abort",
         },
-      } as AbortSucceededResult
+      } as AbortSucceededResult;
     }
 
     abort(
@@ -118,7 +118,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
       coreId: "112",
       custom: {
         app: "bridge-x",
-        method: "AsyncDebitBankAdapter.prepare",
+        method: "AsyncDebitBankAdapter.commit",
       },
     } as CommitResult;
   }

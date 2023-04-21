@@ -52,10 +52,10 @@ export async function prepare(
     transactionRequest.idTxEntidad = intentHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Prepare";
-    transactionRequest.nomOrig = businessData.name || "Test";
-    transactionRequest.docProdOrig = businessData.document;
-    transactionRequest.prodOrig = businessData.account;
-    transactionRequest.prodDest = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
+    transactionRequest.nomDest = businessData.name || "Test";
+    transactionRequest.docProdDest = businessData.document;
+    transactionRequest.prodDest = businessData.account;
+    transactionRequest.prodOrig = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
 
     const bankTransaction = await coopCentralApiClient.createBankTransaction(
       transactionRequest
@@ -122,10 +122,10 @@ export async function abort(
     transactionRequest.idTxEntidad = intentHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Abort";
-    transactionRequest.nomDest = businessData.name || "Test";
-    transactionRequest.docProdDest = businessData.document;
-    transactionRequest.prodDest = businessData.account;
-    transactionRequest.prodOrig = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
+    transactionRequest.nomOrig = businessData.name || "Test";
+    transactionRequest.docProdOrig = businessData.document;
+    transactionRequest.prodOrig = businessData.account;
+    transactionRequest.prodDest = `${config.COOPCENTRAL_VIRTUAL_ACCOUNT}`;
 
     const bankTransaction = await coopCentralApiClient.createBankTransaction(
       transactionRequest
