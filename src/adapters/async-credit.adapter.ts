@@ -35,9 +35,9 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
         args: [
           context.job.handle,
           context.entry.target,
-          context.intent.handle,
-          context.entry.amount
-        ]
+          context.command.handle,
+          context.entry.amount,
+        ],
       });
     }
 
@@ -87,9 +87,9 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
         args: [
           context.job.handle,
           context.entry.target,
-          context.intent.handle,
-          context.entry.amount
-        ]
+          context.command.handle,
+          context.entry.amount,
+        ],
       });
     }
 

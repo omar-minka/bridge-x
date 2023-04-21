@@ -12,7 +12,7 @@ const coopCentralApiClient = new CoopcentralApiService(config);
 export async function prepare(
   jobId: string,
   sourceHandle: string,
-  intentHandle: string,
+  commandHandle: string,
   amount: number
 ) {
   const database = Database.getInstance();
@@ -27,7 +27,7 @@ export async function prepare(
       `[job:${jobId}:prepare] checking transaction status on coopcentral`
     );
     const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = intentHandle;
+    transactionRequest.externalId = commandHandle;
 
     try {
       const transactionStatus =
@@ -68,7 +68,7 @@ export async function prepare(
     const businessData = database.from("business").get(sourceHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
-    transactionRequest.idTxEntidad = intentHandle;
+    transactionRequest.idTxEntidad = commandHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Prepare";
     transactionRequest.nomOrig = businessData.name || "Test";
@@ -109,7 +109,7 @@ export async function prepare(
 export async function abort(
   jobId: string,
   sourceHandle: string,
-  intentHandle: string,
+  commandHandle: string,
   amount: number
 ) {
   const database = Database.getInstance();
@@ -129,7 +129,7 @@ export async function abort(
     );
 
     const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = intentHandle;
+    transactionRequest.externalId = commandHandle;
 
     try {
       const transactionStatus =
@@ -165,7 +165,7 @@ export async function abort(
     const businessData = database.from("business").get(sourceHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
-    transactionRequest.idTxEntidad = intentHandle;
+    transactionRequest.idTxEntidad = commandHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Abort";
     transactionRequest.nomDest = businessData.name || "Test";

@@ -12,7 +12,7 @@ const coopCentralApiClient = new CoopcentralApiService(config);
 export async function prepare(
   jobId: string,
   targetHandle: string,
-  intentHandle: string,
+  commandHandle: string,
   amount: number
 ) {
   const database = Database.getInstance();
@@ -24,7 +24,7 @@ export async function prepare(
 
   if (job.status === "RUNNING") {
     const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = intentHandle;
+    transactionRequest.externalId = commandHandle;
 
     try {
       const transactionStatus =
@@ -61,7 +61,7 @@ export async function prepare(
     const businessData = database.from("business").get(targetHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
-    transactionRequest.idTxEntidad = intentHandle;
+    transactionRequest.idTxEntidad = commandHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Prepare";
     transactionRequest.nomDest = businessData.name || "Test";
@@ -95,7 +95,7 @@ export async function prepare(
 export async function abort(
   jobId: string,
   targetHandle: string,
-  intentHandle: string,
+  commandHandle: string,
   amount: number
 ) {
   const database = Database.getInstance();
@@ -111,7 +111,7 @@ export async function abort(
 
   if (job.status === "RUNNING") {
     const transactionRequest = new CheckTransactionStatusRequest();
-    transactionRequest.externalId = intentHandle;
+    transactionRequest.externalId = commandHandle;
 
     try {
       const transactionStatus =
@@ -143,7 +143,7 @@ export async function abort(
     const businessData = database.from("business").get(targetHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
-    transactionRequest.idTxEntidad = intentHandle;
+    transactionRequest.idTxEntidad = commandHandle;
     transactionRequest.valorTx = `${amount / config.CURRENCY_FACTOR}`;
     transactionRequest.descripTx = "Abort";
     transactionRequest.nomOrig = businessData.name || "Test";

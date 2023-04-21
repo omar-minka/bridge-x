@@ -21,7 +21,9 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult> {
-    console.log(`[debit:processor:${context.job.handle}] got a new request to prepare`)
+    console.log(
+      `[debit:processor:${context.job.handle}] got a new request to prepare`
+    );
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
@@ -35,9 +37,9 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
         args: [
           context.job.handle,
           context.entry.source,
-          context.intent.handle,
-          context.entry.amount
-        ]
+          context.command.handle,
+          context.entry.amount,
+        ],
       });
     }
 
@@ -73,7 +75,9 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async abort(context: TransactionContext): Promise<AbortResult> {
-    console.log(`[debit:processor:${context.job.handle}] got a new request to abort`)
+    console.log(
+      `[debit:processor:${context.job.handle}] got a new request to abort`
+    );
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
@@ -87,9 +91,9 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
         args: [
           context.job.handle,
           context.entry.source,
-          context.intent.handle,
-          context.entry.amount
-        ]
+          context.command.handle,
+          context.entry.amount,
+        ],
       });
     }
 
@@ -113,7 +117,9 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async commit(context: TransactionContext): Promise<CommitResult> {
-    console.log(`[debit:processor:${context.job.handle}] got a new request to commit`)
+    console.log(
+      `[debit:processor:${context.job.handle}] got a new request to commit`
+    );
     return {
       status: JobResultStatus.Committed,
       coreId: "112",
