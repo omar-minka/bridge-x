@@ -10,6 +10,10 @@ import {
   PrepareSucceededResult,
   TransactionContext,
 } from '@minka/bridge-sdk'
+import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
+import moment from 'moment'
+import { config } from '../config'
+import Web3 from 'web3'
 
 const suspendedJobs = new Set()
 
@@ -25,25 +29,72 @@ const suspendedJobs = new Set()
  * results.
  */
 export class AsyncDebitBankAdapter extends IBankAdapter {
-  prepare(context: TransactionContext): Promise<PrepareResult> {
+  
+  protected web3: Web3
+  
+  constructor() {
+    super()
+    this.web3 = new Web3(config.ETH_WEBSOCKET_URL)
+  }
+
+  async prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('debit prepare called')
     console.log(JSON.stringify(context, null, 2))
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
-
-      const result: PrepareSucceededResult = {
-        status: JobResultStatus.Prepared,
-        coreId: '112',
-        custom: {
-          app: 'bridge-x',
-          method: 'AsyncDebitBankAdapter.prepare',
-        },
+      
+      if(context.intent.custom) {
+        const { txnId } = context.intent.custom 
+        const re = /[0-9A-Fa-f]{6}/g;
+        if(re.test(txnId)) {
+          try {
+            const transactionReceipt = await this.web3.eth.getTransactionReceipt(txnId)
+   
+            if(transactionReceipt) {
+              const result: PrepareSucceededResult = {
+                status: JobResultStatus.Prepared,
+                coreId: txnId,
+                custom: {
+                  app: config.BRIDGE_APP,
+                  method: 'AsyncDebitBankAdapter.prepare',
+                }
+              }
+              return Promise.resolve(result)
+            } else {
+              return this.suspend(context, 10)
+            } 
+          } catch(err) {
+            return this.suspend(context, 10)
+          } 
+        } else {
+          return Promise.resolve({
+            status: JobResultStatus.Failed,
+            custom: {
+              app: config.BRIDGE_APP,
+              method: 'AsyncDebitBankAdapter.prepare',
+            },
+            error: {
+              detail: "Invalid transaction hash",
+              reason: LedgerErrorReason.BridgeIntentUnrelated
+            }
+          })
+        }
+      } else {
+        return Promise.resolve({
+          status: JobResultStatus.Failed,
+          custom: {
+            app: config.BRIDGE_APP,
+            method: 'AsyncDebitBankAdapter.prepare',
+          },
+          error: {
+            detail: "Couldn't find transaction in blockchain",
+            reason: LedgerErrorReason.BridgeIntentUnrelated
+          }
+        })
       }
-
-      return Promise.resolve(result)
     } else {
-      return this.suspend(context)
+      return this.suspend(context, 2)
     }
   }
 
@@ -54,18 +105,23 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
 
+      let coreId
+      if(context.intent.custom) {
+        const { txnId } = context.intent.custom
+        coreId = txnId 
+      }
       const result: AbortSucceededResult = {
         status: JobResultStatus.Aborted,
-        coreId: '667',
+        coreId,
         custom: {
-          app: 'bridge-x',
+          app: config.BRIDGE_APP,
           method: 'AsyncDebitBankAdapter.abort',
         },
       }
 
       return Promise.resolve(result)
     } else {
-      return this.suspend(context)
+      return this.suspend(context, 2)
     }
   }
 
@@ -76,18 +132,24 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
 
+      let coreId
+      if(context.intent.custom) {
+        const { txnId } = context.intent.custom
+        coreId = txnId 
+      }
+
       const result: CommitSucceededResult = {
         status: JobResultStatus.Committed,
-        coreId: '889',
+        coreId,
         custom: {
-          app: 'bridge-x',
+          app: config.BRIDGE_APP,
           method: 'AsyncDebitBankAdapter.commit',
         },
       }
 
       return Promise.resolve(result)
     } else {
-      return this.suspend(context)
+      return this.suspend(context, 10)
     }
   }
 
@@ -99,15 +161,16 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     suspendedJobs.delete(context.job.handle)
   }
 
-  protected suspend(context: TransactionContext) {
+  protected suspend(context: TransactionContext, seconds: number) {
     const job = context.job.handle
 
-    console.log(`suspending indefinitely job ${job}`)
+    console.log(`suspending job ${job} for ${seconds} seconds`)
 
     suspendedJobs.add(job)
 
     const suspendedResult: JobSuspendedResult = {
       status: JobResultStatus.Suspended,
+      suspendedUntil: moment().utc().add(seconds, 'seconds').toDate(),
     }
 
     return Promise.resolve(suspendedResult)

@@ -10,7 +10,12 @@ import {
   PrepareSucceededResult,
   TransactionContext,
 } from '@minka/bridge-sdk'
+import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
+import { ContextualLogger } from '@minka/bridge-sdk/logger'
+import { ClaimAction, TransferClaim } from '@minka/bridge-sdk/types'
 import moment from 'moment'
+import { config } from '../config'
+import Web3 from 'web3'
 
 const suspendedJobs = new Set()
 
@@ -22,25 +27,96 @@ const suspendedJobs = new Set()
  * will return successful results.
  */
 export class AsyncCreditBankAdapter extends IBankAdapter {
-  prepare(context: TransactionContext): Promise<PrepareResult> {
+
+  protected web3: Web3
+  protected logger: ContextualLogger
+
+  constructor() {
+    super()
+    this.web3 = new Web3(config.ETH_WEBSOCKET_URL)
+    this.logger = new ContextualLogger({
+      prefixes: ['ETH_BRIDGE']
+    })
+  }
+  
+  async prepare(context: TransactionContext): Promise<PrepareResult> {
     console.log('credit prepare called')
     console.log(JSON.stringify(context, null, 2))
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
+      const { entry: { target, amount, symbol } } = context
+      if(symbol === 'eth') {
 
-      const result: PrepareSucceededResult = {
-        status: JobResultStatus.Prepared,
-        coreId: '111',
-        custom: {
-          app: 'bridge-x',
-          method: 'AsyncCreditBankAdapter.prepare',
-        },
+      // TODO validate regex to enable to withdraw to external wallets 
+      const regex = /^eth:(.*)$/;
+      const { intent: { claims, custom } } = context
+
+      const bridgeClaim = claims.find((claim) => {
+        const [_, externalAddress] = (claim as TransferClaim).source.match(regex);
+        console.log(claim)
+        return claim.action === ClaimAction.Transfer && 
+          claim.target === target && 
+          claim.symbol === 'eth' &&
+          this.web3.utils.isAddress(externalAddress)
+      }) as TransferClaim
+
+      if(bridgeClaim) {
+        const [_, externalAddress] = (bridgeClaim as TransferClaim).source.match(regex);
+        try {
+          const nonce =  await this.web3.eth.getTransactionCount(config.BRIDGE_ETH_PUBLIC_KEY, 'latest');
+
+          const transaction = {
+            to: externalAddress,
+            value: amount,
+            gas: (custom && custom.gas) || config.ETH_DEFAULT_GAS,
+            nonce: nonce
+          };
+          const signedTx = await this.web3.eth.accounts.signTransaction(transaction, config.BRIDGE_ETH_SECRET_KEY);
+        
+          const blockchainTransaction = await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction)
+          console.log("🎉 The hash of your transaction is: ", blockchainTransaction.transactionHash, "\n Check Alchemy's Mempool to view the status of your transaction!");
+          console.log(blockchainTransaction)
+          const result: PrepareSucceededResult = {
+            status: JobResultStatus.Prepared,
+            coreId: blockchainTransaction.transactionHash,
+            custom: {
+              app: config.BRIDGE_APP,
+              method: 'AsyncCreditBankAdapter.prepare',
+            },
+          }
+          return Promise.resolve(result)
+        } catch(err) {
+          console.log("❗Something went wrong while submitting the transaction:", err?.message)
+
+          return Promise.resolve({
+            status: JobResultStatus.Failed,
+            custom: {
+              app: config.BRIDGE_APP,
+              method: 'AsyncDebitBankAdapter.prepare',
+            },
+            error: {
+              detail: "Couldn't create transaction in blockchain" + err?.message,
+              reason: LedgerErrorReason.BridgeUnexpectedCoreError
+            }
+          })
+        }
+      } else {
+        return Promise.resolve({
+          status: JobResultStatus.Failed,
+          custom: {
+            app: config.BRIDGE_APP,
+            method: 'AsyncDebitBankAdapter.prepare',
+          },
+          error: {
+            detail: "Invalid ethereum address",
+            reason: LedgerErrorReason.BridgeAccountNotFound
+          }
+        })
       }
-
-      return Promise.resolve(result)
+    }
     } else {
-      return this.suspend(context, 10)
+      return this.suspend(context, 5)
     }
   }
 
@@ -50,12 +126,10 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
 
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
-
       const result: AbortSucceededResult = {
         status: JobResultStatus.Aborted,
-        coreId: '666',
         custom: {
-          app: 'bridge-x',
+          app: config.BRIDGE_APP,
           method: 'AsyncCreditBankAdapter.abort',
         },
       }
@@ -75,9 +149,8 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
 
       const result: CommitSucceededResult = {
         status: JobResultStatus.Committed,
-        coreId: '888',
         custom: {
-          app: 'bridge-x',
+          app: config.BRIDGE_APP,
           method: 'AsyncCreditBankAdapter.commit',
         },
       }

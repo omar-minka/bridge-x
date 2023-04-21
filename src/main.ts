@@ -14,10 +14,11 @@ import { SyncCreditBankAdapter } from './adapters/sync-credit.adapter'
 import { SyncDebitBankAdapter } from './adapters/sync-debit.adapter'
 import { AsyncCreditBankAdapter } from './adapters/async-credit.adapter'
 import { AsyncDebitBankAdapter } from './adapters/async-debit.adapter'
+import { EthListener } from './listeners/ethereum.listener'
 
 // NOTE(alen): set to 'true' to use async bank
 // adapters, which utilize job suspend feature
-const asyncBankAdapter = false
+const asyncBankAdapter = true
 
 const dataSource: DataSourceOptions = {
   host: config.TYPEORM_HOST,
@@ -92,6 +93,9 @@ const boostrap = async () => {
   for (const handle of processors) {
     await bootstrapProcessor(handle)
   }
+
+  const listener = new EthListener()
+  listener.init()
 }
 
 boostrap()
