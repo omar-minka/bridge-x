@@ -44,8 +44,6 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     }
 
     if (job?.status === "COMPLETED") {
-      this.database.delete("jobs", jobId);
-
       return {
         status: JobResultStatus.Prepared,
         coreId: "112",
@@ -57,8 +55,6 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     }
 
     if (job?.status === "FAILED") {
-      this.database.delete("jobs", jobId);
-
       return {
         status: JobResultStatus.Failed,
         error: {
@@ -98,8 +94,6 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     }
 
     if (job?.status === "COMPLETED") {
-      this.database.delete("jobs", jobId);
-
       return {
         status: JobResultStatus.Aborted,
         coreId: "667",
