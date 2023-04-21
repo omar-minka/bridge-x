@@ -108,7 +108,7 @@ export async function abort(
       const transactionStatus =
         await coopCentralApiClient.checkTransactionStatus(transactionRequest);
 
-      if (transactionStatus?.status === "COMPLETED") {
+      if (transactionStatus.status === "COMPLETED") {
         job.status = "COMPLETED";
         return;
       }
