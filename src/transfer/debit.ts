@@ -101,11 +101,11 @@ export async function abort(
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
-    const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
-      transactionRequest
-    );
+    const transactionStatus = await coopCentralApiClient
+      .checkTransactionStatus(transactionRequest)
+      .catch(() => null);
 
-    if (transactionStatus.status === "COMPLETED") {
+    if (transactionStatus?.status === "COMPLETED") {
       job.status = "COMPLETED";
       return;
     }
