@@ -18,6 +18,7 @@ import { register } from "./api";
 import express from "express";
 import bodyParser from "body-parser";
 import { seed, Database } from "./database";
+import {doWork} from "./worker";
 
 const dataSource: DataSourceOptions = {
   host: config.TYPEORM_HOST,
@@ -116,3 +117,4 @@ const boostrap = async () => {
 };
 
 boostrap();
+doWork()
