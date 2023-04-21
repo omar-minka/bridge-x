@@ -7,11 +7,11 @@ import {
   PrepareResult,
   TransactionContext,
 } from "@minka/bridge-sdk";
-import { PrepareFailedResult } from "@minka/bridge-sdk/src/bank/bank-adapter.service";
-import { LedgerSdk } from "@minka/ledger-sdk";
-import { CoopcentralApiService } from "../coopcentral-api-service";
-import { CreateBankTransactionRequest, ServiceError } from "../models";
-import { config } from "../config";
+import {LedgerSdk} from "@minka/ledger-sdk";
+import {CoopcentralApiService} from "../coopcentral-api-service";
+import {CreateBankTransactionRequest, ServiceError} from "../models";
+import {config} from "../config";
+import {LedgerErrorReason} from "@minka/bridge-sdk/errors";
 
 const suspendedJobs = new Map();
 
@@ -132,6 +132,8 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult> {
+    console.log("prepare called with", context)
+
     const jobId = context.job.handle;
     const job = suspendedJobs.get(jobId);
 
@@ -160,8 +162,11 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
 
       return {
         status: JobResultStatus.Failed,
-        error: job.error,
-      } as PrepareFailedResult;
+        error: {
+          reason: LedgerErrorReason.BridgeAccountInsufficientBalance,
+          detail: job.error.message
+        }
+      }
     }
 
     this.prepareAsync(context);
