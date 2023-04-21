@@ -94,6 +94,10 @@ export async function abort(
     return;
   }
 
+  if (job.status === "COMPLETED") {
+    return;
+  }
+
   if (job.status === "RUNNING") {
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
