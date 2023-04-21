@@ -87,14 +87,14 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
     if (job?.status === "COMPLETED") {
       this.database.delete("jobs", jobId);
 
-      const result: AbortSucceededResult = {
+      return {
         status: JobResultStatus.Aborted,
         coreId: "667",
         custom: {
           app: "bridge-x",
           method: "AsyncDebitBankAdapter.abort",
         },
-      };
+      } as AbortSucceededResult
     }
 
     abort(
