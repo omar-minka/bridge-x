@@ -11,7 +11,7 @@ const coopCentralApiClient = new CoopcentralApiService(config);
 
 export async function prepare(
   jobId: string,
-  sourceHandle: string,
+  targetHandle: string,
   intentHandle: string,
   amount: number
 ) {
@@ -46,7 +46,7 @@ export async function prepare(
   job.status = "RUNNING";
 
   try {
-    const businessData = database.from("business").get(sourceHandle);
+    const businessData = database.from("business").get(targetHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
     transactionRequest.idTxEntidad = intentHandle;
@@ -82,7 +82,7 @@ export async function prepare(
 
 export async function abort(
   jobId: string,
-  sourceHandle: string,
+  targetHandle: string,
   intentHandle: string,
   amount: number
 ) {
@@ -116,7 +116,7 @@ export async function abort(
   job.status = "RUNNING";
 
   try {
-    const businessData = database.from("business").get(sourceHandle);
+    const businessData = database.from("business").get(targetHandle);
 
     const transactionRequest = new CreateBankTransactionRequest();
     transactionRequest.idTxEntidad = intentHandle;

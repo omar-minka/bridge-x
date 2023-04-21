@@ -60,7 +60,7 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
 
     prepare(
       context.job.handle,
-      context.entry.source,
+      context.entry.target,
       context.intent.handle,
       context.entry.amount
     );
@@ -99,7 +99,7 @@ export class AsyncCreditBankAdapter extends IBankAdapter {
 
     abort(
       context.job.handle,
-      context.entry.source,
+      context.entry.target,
       context.intent.handle,
       context.entry.amount
     );
