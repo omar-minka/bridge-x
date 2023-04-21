@@ -23,11 +23,18 @@ export async function prepare(
   }
 
   if (job.status === "RUNNING") {
+    console.log(
+      `[job:${jobId}:prepare] checking transaction status on coopcentral`
+    );
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
     const transactionStatus = await coopCentralApiClient.checkTransactionStatus(
       transactionRequest
+    );
+
+    console.log(
+      `[job:${jobId}:prepare] transaction status is: ${transactionStatus.status}`
     );
 
     if (transactionStatus.status === "COMPLETED") {
@@ -61,7 +68,11 @@ export async function prepare(
       transactionRequest
     );
 
-    console.log(JSON.stringify(bankTransaction));
+    console.log(
+      `[job:${jobId}:prepare] created transaction on coopcentral: ${JSON.stringify(
+        bankTransaction
+      )}`
+    );
     job.status = "COMPLETED";
   } catch (error) {
     if (error instanceof ServiceError) {
@@ -75,6 +86,9 @@ export async function prepare(
       }
     }
 
+    console.log(
+      `[job:${jobId}:prepare] failed with some uknnown error: ${error.message}`
+    );
     job.status = "FAILED";
     job.error = error;
   }
@@ -98,6 +112,10 @@ export async function abort(
   }
 
   if (job.status === "RUNNING") {
+    console.log(
+      `[job:${jobId}:abort] checking transaction status on coopcentral`
+    );
+
     const transactionRequest = new CheckTransactionStatusRequest();
     transactionRequest.externalId = intentHandle;
 
@@ -106,6 +124,10 @@ export async function abort(
       .catch(() => null);
 
     if (transactionStatus?.status === "COMPLETED") {
+      console.log(
+        `[job:${jobId}:abort] transaction status is: ${transactionStatus.status}`
+      );
+
       job.status = "COMPLETED";
       return;
     }
@@ -131,7 +153,11 @@ export async function abort(
       transactionRequest
     );
 
-    console.log(JSON.stringify(bankTransaction));
+    console.log(
+      `[job:${jobId}:abort] created transaction on coopcentral: ${JSON.stringify(
+        bankTransaction
+      )}`
+    );
     job.status = "COMPLETED";
   } catch (error) {
     if (error instanceof ServiceError) {

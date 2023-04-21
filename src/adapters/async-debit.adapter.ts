@@ -21,15 +21,23 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult> {
-    console.log("debit prepare called with", JSON.stringify(context));
+    console.log(`[debit:processor:${context.job.handle}] got a new request to prepare`)
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
 
     if (!job) {
       this.database.set("jobs", jobId, {
+        id: jobId,
         context,
         status: "PENDING",
+        run: prepare,
+        args: [
+          context.job.handle,
+          context.entry.source,
+          context.intent.handle,
+          context.entry.amount
+        ]
       });
     }
 
@@ -58,13 +66,6 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
       };
     }
 
-    prepare(
-      context.job.handle,
-      context.entry.source,
-      context.intent.handle,
-      context.entry.amount
-    );
-
     return {
       status: JobResultStatus.Suspended,
       suspendedUntil: new Date(Date.now() + 5000),
@@ -72,15 +73,23 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async abort(context: TransactionContext): Promise<AbortResult> {
-    console.log("debit abort called", JSON.stringify(context));
+    console.log(`[debit:processor:${context.job.handle}] got a new request to abort`)
 
     const jobId = context.job.handle;
     const job = this.database.from("jobs").get(jobId);
 
     if (!job) {
       this.database.set("jobs", jobId, {
+        id: jobId,
         context,
         status: "PENDING",
+        run: abort,
+        args: [
+          context.job.handle,
+          context.entry.source,
+          context.intent.handle,
+          context.entry.amount
+        ]
       });
     }
 
@@ -97,13 +106,6 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
       } as AbortSucceededResult;
     }
 
-    abort(
-      context.job.handle,
-      context.entry.source,
-      context.intent.handle,
-      context.entry.amount
-    );
-
     return {
       status: JobResultStatus.Suspended,
       suspendedUntil: new Date(Date.now() + 5000),
@@ -111,8 +113,7 @@ export class AsyncDebitBankAdapter extends IBankAdapter {
   }
 
   async commit(context: TransactionContext): Promise<CommitResult> {
-    console.log("debit commit called", JSON.stringify(context));
-
+    console.log(`[debit:processor:${context.job.handle}] got a new request to commit`)
     return {
       status: JobResultStatus.Committed,
       coreId: "112",
