@@ -1,23 +1,27 @@
 import { LedgerAddress, LedgerKeyPair } from "@minka/bridge-sdk/types"
-import { CryptoNetwork } from "./src/network.service"
-import { config } from "../config"
+import { CryptoNetwork } from "../src/network.service"
+import { config } from "../../config"
 import wif from 'wif'
 import sendCrypto from 'send-crypto'
-import { IncomingTransaction } from "./src/network.interface"
-import { BitcoinAPI } from "./bitcoin.api"
+import { IncomingTransaction } from "../src/network.interface"
+import { BitcoinAPI } from "../bitcoin.api"
 
-export class Tesnet extends CryptoNetwork {
+export class Testnet extends CryptoNetwork {
   balance: number = 0
+  statusHashmap: Record<string, 'pending' | 'confirmed'> = {}
   cryptoAccount: sendCrypto
-  dateOffset = new Date('2023-04-21T12:00:45.026Z')
+  dateOffset : Date = new Date('2023-04-22T09:04:28.45Z');
+  //dateOffset: Date = new Date()
+
+  pollingTime: number = 600000
 
   constructor() {
     super()
     this.config = {
       symbol: 'btc',
       schema: 'btc',
-      blockchainAddress: config.BTC_ADDRESS,
       wallet: config.WALLET_HANDLE,
+      blockchainAddress: config.BTC_ADDRESS,
       keyPair: {
         format: 'ed25519-raw',
         public: config.WALLET_PUBLIC_KEY,
@@ -25,17 +29,29 @@ export class Tesnet extends CryptoNetwork {
       },
       factor: 100000000
     }
-    var keyPair = wif.decode(config.BTC_PRIVATE_KEY)
 
+    var keyPair = wif.decode(config.BTC_PRIVATE_KEY)
     this.cryptoAccount = new sendCrypto(keyPair.privateKey, {
       network: 'testnet3',
     });
+  }
+
+  async checkBalance(): Promise<number> {
+    return this.balance
+  }
+  balanceUpdate(balance: number) {
+    this.balance = balance
+  }
+
+  async getTransactionStatus(hash: string): Promise<string> {
+    return this.statusHashmap[hash] || null
   }
 
   async loadTransactions(): Promise<IncomingTransaction[]> {
     const [balance, transactions] = await BitcoinAPI.getTransactions(config.BTC_ADDRESS)
     this.balanceUpdate(balance)
     const response : IncomingTransaction[] = []
+    console.log('Checking btc transactions, ', transactions.length, ' found.')
     for(const txn of transactions){
       let amount : number = 0
       for(const output of txn.outputs){
@@ -43,14 +59,24 @@ export class Tesnet extends CryptoNetwork {
           amount = Number(output.value)
         }
       }
-      response.push({
+      const parsedTxn : IncomingTransaction = {
         hash: txn.hash,
         address: txn.inputs?.[0]?.addresses?.[0],
         amount,
         received: new Date(txn.received),
-        status: txn.confirmations > 4 ? 'confirmed' : 'pending'
-      })
+        status: txn.confirmations > 0 ? 'confirmed' : 'pending'
+      }
+     if( parsedTxn.received.getTime() > this.dateOffset.getTime()){
+        response.push(parsedTxn)
+        this.statusHashmap[txn.hash] = parsedTxn.status
+      } else if ( this.statusHashmap[parsedTxn.hash] ){
+        // Only update status if it's on the hashmap for status
+        // to avoid memory usage.
+        this.statusHashmap[txn.hash] = parsedTxn.status
+      }
+ 
     }
+    this.dateOffset = new Date()
     return response
   }
 
@@ -69,6 +95,7 @@ export class Tesnet extends CryptoNetwork {
   }
 
   async sendTransaction(to, amount) {
-    await this.cryptoAccount.send(to, (amount / this.config.factor), "BTC")
+    const txn = await this.cryptoAccount.sendSats(to, amount, "BTC")
+    console.log(`Transaction sent: ${txn}`)
   }
 }

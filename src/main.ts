@@ -15,7 +15,7 @@ import { SyncDebitBankAdapter } from './adapters/sync-debit.adapter'
 import { AsyncCreditBankAdapter } from './adapters/async-credit.adapter'
 import { AsyncDebitBankAdapter } from './adapters/async-debit.adapter'
 
-import { ethereumNetwork } from './btc/main'
+import { BitcoinNetwork, ethereumNetwork } from './assets'
 
 // NOTE(alen): set to 'true' to use async bank
 // adapters, which utilize job suspend feature
@@ -85,7 +85,7 @@ const bootstrapProcessor = async (handle: string) => {
 }
 
 const bootstrapListeners = async () => {
-  return [ethereumNetwork]
+  return [ethereumNetwork, BitcoinNetwork]
 }
 
 const boostrap = async () => {

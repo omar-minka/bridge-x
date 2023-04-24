@@ -26,11 +26,6 @@ export interface ICryptoNetwork {
     checkBalance() : Promise<number>
 
     /**
-     * This method will update the cached balnce of the wallet.
-     */
-    balanceUpdate(balance: number) : void
-
-    /**
      * This method can be used to validate an address before sending a transaction.
      */
     validateAddress(string: LedgerAddress): Promise<false | string>
@@ -38,11 +33,16 @@ export interface ICryptoNetwork {
     /**
      * This method will be called to send a transaction to the network.
      */
-    sendOutgoingTransaction(to: string, amount: number): Promise<void>
+    sendTransaction(to: string, amount: number): Promise<void>
 
     /**
      * This method will be called to get the transaction status.
      */
     getTransactionStatus(hash: string) : Promise<string>
+
+    /**
+     * This method validates if a transaction should be processed or ignored.
+     */
+    validateTransaction(txn: IncomingTransaction): Promise<boolean>
 
 }

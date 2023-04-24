@@ -1,7 +1,7 @@
 import { LedgerAddress, LedgerIntent, ClaimAction, AccessAction } from "@minka/bridge-sdk/types"
-import { CryptoNetwork } from "./src/network.service"
-import { config } from "../config"
-import { IncomingTransaction } from "./src/network.interface"
+import { CryptoNetwork } from "../src/network.service"
+import { config } from "../../config"
+import { IncomingTransaction } from "../src/network.interface"
 
 import Web3 from 'web3';
 
@@ -9,14 +9,18 @@ const blocks = {}
 export class EthereumNetwork extends CryptoNetwork {
   balance: number = 0
   web3: Web3
-  dateOffset = new Date('2023-04-21T12:00:45.026Z')
+  dateOffset: Date = new Date()
+
+  pollingTime: number = 5000
+
+  pendingTransactions: IncomingTransaction[] = []
 
   constructor() {
     super()
     this.config = {
       symbol: 'eth',
       schema: 'eth',
-      wallet: 'eth',
+      wallet: 'minka',
       blockchainAddress: config.BRIDGE_ETH_PUBLIC_KEY,
       keyPair: {
         format: 'ed25519-raw',
@@ -25,14 +29,15 @@ export class EthereumNetwork extends CryptoNetwork {
       },
       factor: 1000000000000000000
     }
-
-    this.web3 = new Web3(config.ETH_WEBSOCKET_URL);
+    try{
+      this.web3 = new Web3(config.ETH_WEBSOCKET_URL);
+    } catch (error){
+      console.log(error)
+    }
   }
 
   async loadTransactions(): Promise<IncomingTransaction[]> {
-    
     const block = await this.web3.eth.getBlock('latest');
-
     const currBlock = block.number
 
     console.log(`Checking new block ${currBlock}`)
@@ -70,8 +75,12 @@ export class EthereumNetwork extends CryptoNetwork {
   }
 
   async getTransactionStatus(hash: string): Promise<string> {
-    const transaction = await this.web3.eth.getTransactionReceipt(hash)
-    return transaction ? 'confirmed' : 'pending'
+    try{
+      const transaction = await this.web3.eth.getTransactionReceipt(hash)
+      return transaction ? 'confirmed' : 'pending'
+    } catch (error: any){
+      return 'pending'
+    }
   }
 
   async validateAddress(input: LedgerAddress): Promise<string | false> {
@@ -85,7 +94,7 @@ export class EthereumNetwork extends CryptoNetwork {
     return this.web3.utils.isAddress(address) ? address : false
   }
 
-  async sendTransaction(to: string, amount: number) {
+  async sendTransaction(to: string, amount: number) : Promise<void>{
     const nonce =  await this.web3.eth.getTransactionCount(config.BRIDGE_ETH_PUBLIC_KEY, 'latest');
 
     const transaction = {
@@ -96,6 +105,6 @@ export class EthereumNetwork extends CryptoNetwork {
     };
     const signedTx = await this.web3.eth.accounts.signTransaction(transaction, config.BRIDGE_ETH_SECRET_KEY);
   
-    return await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction)
+    await this.web3.eth.sendSignedTransaction(signedTx.rawTransaction)
   }
 }
