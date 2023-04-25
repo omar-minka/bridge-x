@@ -29,7 +29,6 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
     // Claims validation
     let purchases: any[] = []
     for (const claim of claims) {
-      console.log(claim)
       let error;
 
       if (claim.action !== ClaimAction.Transfer) {
@@ -38,18 +37,13 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
           detail: 'Only Transfer is supported',
         }
       } else {
-        const [_, method, asset] = claim.target.match(/^(buy|sell):([a-z]+)@exchange$/i)
-         if (method !== 'buy') {
-          error = {
-            reason: LedgerErrorReason.BridgeIntentUnrelated,
-            detail: 'Only buy is supported',
-          }
-        }
-
+        const [target, exchangerEntity] = claim.target.split('@')
+        const [asset] = exchangerEntity.split('.')
         purchases.push({
           from: claim.symbol,
           to: asset,
-          amount: claim.amount
+          amount: claim.amount,
+          target
         })
       }
       if (error) {
@@ -61,7 +55,7 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
             method: 'SyncCreditBankAdapter.prepare',
           }
         }
-        return Promise.resolve(result)
+        return result
       }
 
       const claims : (TransferClaim | IssueClaim)[] = []
@@ -80,7 +74,7 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
           symbol: purchase.to,
           amount: newAmount,
           source: 'exchange',
-          target: (claim as TransferClaim).source
+          target: purchase.target
         })
         if( requiredBalances[purchase.to] ){
           requiredBalances[purchase.to] += newAmount
@@ -104,7 +98,7 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
               method: 'SyncCreditBankAdapter.prepare',
             }
           }
-          return Promise.resolve(result)
+          return result
         }
       }
       

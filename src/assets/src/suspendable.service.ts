@@ -63,6 +63,6 @@ export class SuspendableBankAdapter extends IBankAdapter {
       suspendedUntil: moment().utc().add(seconds, 'seconds').toDate(),
     }
 
-    return Promise.resolve(suspendedResult)
+    return suspendedResult
   }
 }

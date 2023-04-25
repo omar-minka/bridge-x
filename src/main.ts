@@ -10,16 +10,10 @@ import {
   ServerOptions,
 } from '@minka/bridge-sdk'
 import sleep from 'sleep-promise'
-import { SyncCreditBankAdapter } from './adapters/sync-credit.adapter'
-import { SyncDebitBankAdapter } from './adapters/sync-debit.adapter'
 import { AsyncCreditBankAdapter } from './adapters/async-credit.adapter'
 import { AsyncDebitBankAdapter } from './adapters/async-debit.adapter'
 
 import { BitcoinNetwork, ethereumNetwork } from './assets'
-
-// NOTE(alen): set to 'true' to use async bank
-// adapters, which utilize job suspend feature
-const asyncBankAdapter = true
 
 const dataSource: DataSourceOptions = {
   host: config.TYPEORM_HOST,
@@ -61,13 +55,8 @@ const bootstrapServer = async (processors: string[]) => {
 }
 
 const bootstrapProcessor = async (handle: string) => {
-  const creditAdapter = asyncBankAdapter
-    ? new AsyncCreditBankAdapter()
-    : new SyncCreditBankAdapter()
-
-  const debitAdapter = asyncBankAdapter
-    ? new AsyncDebitBankAdapter()
-    : new SyncDebitBankAdapter()
+  const creditAdapter = new AsyncCreditBankAdapter()
+  const debitAdapter = new AsyncDebitBankAdapter()
 
   const processor = ProcessorBuilder.init()
     .useDataSource(dataSource)

@@ -1,0 +1,2 @@
+- Not all bridge errors are available on Ledger. For example BridgeAccountNotFound
+    -- Hard to debug, the processor may throw errors in verbose mode or something like that?

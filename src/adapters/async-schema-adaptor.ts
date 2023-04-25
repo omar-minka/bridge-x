@@ -11,6 +11,7 @@ import { LedgerErrorReason } from '@minka/bridge-sdk/errors'
 import moment from 'moment'
 import { Adaptors } from '../assets'
 import { ClaimAction } from '@minka/bridge-sdk/ledger-sdk/types'
+import { JobStatus } from '@minka/bridge-sdk/src/job/types'
 
 
 const suspendedJobs = new Set()
@@ -29,6 +30,7 @@ export class AsyncSchemaBankAdapter extends IBankAdapter {
   async processStatus(status: 'prepare' | 'abort' | 'commit', context: TransactionContext): Promise<PrepareResult | CommitResult | AbortResult> {
     if (this.isContinue(context)) {
       this.cleanSuspended(context)
+      console.log(`${status} started`)
       /**
        * We could validate per claim, but for now let's
        * just do it for the entire transaction :)
@@ -41,49 +43,67 @@ export class AsyncSchemaBankAdapter extends IBankAdapter {
           status: JobResultStatus.Prepared,
         })
       }
+      
+      // Default adaptor based on firstClaim's symbol
+      let Adaptor = Adaptors?.[firstClaim.symbol]
 
       let isExchange = false
+      const exchangeWallets = [
+        'btc.ex',
+        'eth.ex',
+        'cop.ex',
+      ]
+
       if( firstClaim.action === ClaimAction.Transfer ){
         const parts = firstClaim.target.split('@')
-        isExchange = parts[1] === 'exchange'
+        isExchange = exchangeWallets.includes(parts[1])
       }
 
       if(isExchange || context.intent?.custom?.exchange){
-        const response = Adaptors.exchange?.[this.getSchema()]?.[status](context)
-        console.log('Adaptor: ', response)
-        return response
+        Adaptor = Adaptors?.exchange
       }
 
-      const Adaptor = Adaptors?.[firstClaim.symbol]?.[this.getSchema()]
-      console.log(firstClaim.symbol, this.getSchema())
-      if( Adaptor ){
-        return Adaptor[status](context)
+      try{
+        const response = await Adaptor[this.getSchema()][status](context)
+        // Ledger doesn't have all bridge error codes, so we replace if any
+        if( response?.error?.reason ){
+          response.error.reason = LedgerErrorReason.BridgeUnexpectedError
+        }
+        return Promise.resolve(response)
+      } catch (error){
+        console.log('Adaptor', Adaptor)
+        console.log(error)
       }
       
-
       // We have no way to prepare this, so we'll abort
-      return Promise.resolve({
+      return {
         status: JobResultStatus.Failed,
         error: {
           reason: LedgerErrorReason.BridgeIntentUnrelated,
           detail: 'This bridge can\'t process this transaction'
         }
-      })
+      }
     } else {
       return this.suspend(context, 3)
     }
   }
 
   async prepare(context: TransactionContext): Promise<PrepareResult>{
-    return this.processStatus('prepare', context) as Promise<PrepareResult>
+    const result = await this.processStatus('prepare', context) as PrepareResult
+    console.log(`Final response for prepare:`, result)
+    return Promise.resolve(result)
   }
 
   async commit(context: TransactionContext): Promise<CommitResult>{
-    return this.processStatus('commit', context) as Promise<CommitResult>
+    const result = await this.processStatus('commit', context) as CommitResult
+    console.log(`Final response for commit:`, result)
+    return Promise.resolve(result)
   }
 
   async abort(context: TransactionContext): Promise<AbortResult>{
-    return this.processStatus('abort', context) as Promise<AbortResult>
+    const result = await this.processStatus('commit', context) as AbortResult
+    console.log(`Final response for abort:`, result)
+    return Promise.resolve(result)
   }
 
   protected isContinue(context: TransactionContext) {
@@ -106,6 +126,6 @@ export class AsyncSchemaBankAdapter extends IBankAdapter {
       suspendedUntil: moment().utc().add(seconds, 'seconds').toDate(),
     }
 
-    return Promise.resolve(suspendedResult)
+    return suspendedResult
   }
 }

@@ -10,8 +10,8 @@ export class Testnet extends CryptoNetwork {
   balance: number = 0
   statusHashmap: Record<string, 'pending' | 'confirmed'> = {}
   cryptoAccount: sendCrypto
-  dateOffset : Date = new Date('2023-04-22T09:04:28.45Z');
-  //dateOffset: Date = new Date()
+  //dateOffset : Date = new Date('2023-04-22T09:04:28.45Z');
+  dateOffset: Date = new Date()
 
   pollingTime: number = 600000
 
@@ -83,6 +83,7 @@ export class Testnet extends CryptoNetwork {
 
   async validateAddress(input: LedgerAddress): Promise<string | false> {
     const parts = input.split(':')
+    console.log(parts)
     if (parts.length !== 2) {
       return false
     }
@@ -93,7 +94,6 @@ export class Testnet extends CryptoNetwork {
     }
     return address
   }
-
   async sendTransaction(to, amount) {
     const txn = await this.cryptoAccount.sendSats(to, amount, "BTC")
     console.log(`Transaction sent: ${txn}`)

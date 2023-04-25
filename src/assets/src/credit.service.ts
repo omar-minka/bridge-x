@@ -48,10 +48,10 @@ export class AsyncCreditBankAdapter extends SuspendableBankAdapter {
           reason: LedgerErrorReason.BridgeIntentUnrelated,
           detail: `Only ${this.assetManager.config.symbol} is supported`,
         }
-      } else if (await this.assetManager.validateAddress(claim.source) === false) {
+      } else if (await this.assetManager.validateAddress(claim.target) === false) {
         error = {
           reason: LedgerErrorReason.BridgeAccountNotFound,
-          detail: 'Invalid eth address',
+          detail: `Invalid ${this.assetManager.config.symbol} address`,
         }
       }
       if (error) {
@@ -63,8 +63,9 @@ export class AsyncCreditBankAdapter extends SuspendableBankAdapter {
             method: 'SyncCreditBankAdapter.prepare',
           }
         }
-        return Promise.resolve(result)
+        return result
       }
+      console.log(claim)
       requiredBalance += claim.amount
       txns.push({
         to: await this.assetManager.validateAddress((claim as TransferClaim).target),
@@ -86,7 +87,7 @@ export class AsyncCreditBankAdapter extends SuspendableBankAdapter {
           method: 'SyncCreditBankAdapter.prepare',
         }
       }
-      return Promise.resolve(result)
+      return result
     }
     console.log('Balance is', balance, 'required', requiredBalance)
     // Send the transaction back to the testnet here

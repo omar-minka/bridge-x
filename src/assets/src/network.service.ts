@@ -42,8 +42,9 @@ export class CryptoNetwork implements ICryptoNetwork {
 
   async startListening() {
     // First listening is immediate
+    // TODO: Reenable this
     this.pollNetwork()
-    setInterval(this.pollNetwork.bind(this), this.pollingTime)
+    //setInterval(this.pollNetwork.bind(this), this.pollingTime)
     this.enqueueTransactions()
   }
 
