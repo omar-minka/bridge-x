@@ -3,6 +3,7 @@ import { Express } from "express";
 import { AccountDetailsRequest, CheckBankAccountRequest, ServiceError } from "./models";
 import { CoopcentralApiService } from "./coopcentral-api-service";
 import {Database} from "./database";
+import {Buffer} from "buffer";
 
 const coopcentralBridgeName = 'coopcentral'
 const usdFactor = 100
@@ -34,6 +35,26 @@ const getAccessRules = (publicKey) => {
 
 export const register = async (config, ledgerSdk: LedgerSdk, expressApp: Express, coopcentralApi: CoopcentralApiService, database: Database) => {
     const keyPair = buildKeyPair(config)
+
+    const apiUsername = config.SERVICE_API_USERNAME || 'admin'
+    const apiPassword = config.SERVICE_API_PASSWORD || 'admin'
+    const apiCredentials = `${apiUsername}:${apiPassword}`
+
+    expressApp.use((request, response, next) => {
+        let authorizationHeader = request.headers.authorization
+
+        if (!authorizationHeader) {
+            return response.status(401).json({ ok: false, error: 'unauthorized' })
+        }
+
+        let requestCredentials = Buffer.from(authorizationHeader.replace('Basic ', ''), 'base64').toString('utf8')
+
+        if (requestCredentials !== apiCredentials) {
+            return response.status(403).json({ ok: false, error: 'forbidden' })
+        }
+
+        return next()
+    })
 
     expressApp.post('/v2/business/onboard', async (request, response) => {
         const { account, document, documentType } = request.body

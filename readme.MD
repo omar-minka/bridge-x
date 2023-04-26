@@ -28,8 +28,7 @@ yarn global add ngrok
 # or
 brew install ngrok
 # then
-ngrok http 3100 # 3100 is the port in src/.env
+ngrok http 3101 # 3100 is the port in src/.env
 ```
 
-Your bridge on ledger must have the url provided by ngrok plus `/v2` for example
-`https://e590-185-254-254-73.ngrok-free.app/v2`
+* 

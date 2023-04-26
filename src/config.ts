@@ -37,4 +37,6 @@ export const config = cleanEnv(process.env, {
   CURRENCY_FACTOR: num(),
 
   SERVICE_API_PORT: num(),
+  SERVICE_API_USERNAME: str(),
+  SERVICE_API_PASSWORD: str(),
 });
