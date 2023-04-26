@@ -13,7 +13,7 @@ export class Testnet extends CryptoNetwork {
   //dateOffset : Date = new Date('2023-04-22T09:04:28.45Z');
   dateOffset: Date = new Date()
 
-  pollingTime: number = 600000
+  pollingTime: number = 5000
 
   constructor() {
     super()
@@ -24,8 +24,8 @@ export class Testnet extends CryptoNetwork {
       blockchainAddress: config.BTC_ADDRESS,
       keyPair: {
         format: 'ed25519-raw',
-        public: config.WALLET_PUBLIC_KEY,
-        secret: config.WALLET_SECRET_KEY
+        public: config.BRIDGE_PUBLIC_KEY,
+        secret: config.BRIDGE_SECRET_KEY
       },
       factor: 100000000
     }

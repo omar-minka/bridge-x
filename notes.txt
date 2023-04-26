@@ -1,2 +1,6 @@
 - Not all bridge errors are available on Ledger. For example BridgeAccountNotFound
     -- Hard to debug, the processor may throw errors in verbose mode or something like that?
+
+- When updating the symbol's factor, should we update all intents?
+
+- Create constraints on bridge database to avoid storing jobs without referenced entries

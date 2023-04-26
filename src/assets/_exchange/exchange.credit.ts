@@ -19,8 +19,8 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
     })
     this.keyPair = {
       format: 'ed25519-raw',
-      public: config.WALLET_PUBLIC_KEY,
-      secret: config.WALLET_SECRET_KEY
+      public: config.BRIDGE_PUBLIC_KEY,
+      secret: config.BRIDGE_SECRET_KEY
     }
   }
   async prepare(context: TransactionContext): Promise<PrepareResult> {
@@ -37,15 +37,22 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
           detail: 'Only Transfer is supported',
         }
       } else {
-        const [target, exchangerEntity] = claim.target.split('@')
+        // omar-test@eth.fx
+        let [target, exchangerEntity] = claim.target.split('@')
+        if( !exchangerEntity ){
+          exchangerEntity = target
+          target = null
+        }
+        // eth . fx
         const [asset] = exchangerEntity.split('.')
         purchases.push({
           from: claim.symbol,
           to: asset,
           amount: claim.amount,
-          target
+          target: target || claim.source,
+          source: exchangerEntity
         })
-      }
+}
       if (error) {
         const result: PrepareFailedResult = {
           status: JobResultStatus.Failed,
@@ -57,79 +64,92 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
         }
         return result
       }
+    }
 
-      const claims : (TransferClaim | IssueClaim)[] = []
-      const requiredBalances : Record<string, number> = {}
-      for(const purchase of purchases){
-        let newAmount = await this.exchangeService.getRate(purchase.from, purchase.to, claim.amount)
-        newAmount = Math.round( newAmount )
-        claims.push({
-          action: ClaimAction.Issue,
-          symbol: purchase.to,
-          target: 'exchange',
-          amount: newAmount
-        })
-        claims.push({
-          action: ClaimAction.Transfer,
-          symbol: purchase.to,
-          amount: newAmount,
-          source: 'exchange',
-          target: purchase.target
-        })
-        if( requiredBalances[purchase.to] ){
-          requiredBalances[purchase.to] += newAmount
-        } else {
-          requiredBalances[purchase.to] = newAmount
-        }
-      }
-
-      for(const [symbol, amount] of Object.entries(requiredBalances)){
-        const balance = await this.exchangeService.checkBalance(symbol)
-        console.log(symbol, balance, amount)
-        if (balance < amount) {
-          const result: PrepareFailedResult = {
-            status: JobResultStatus.Failed,
-            error: {
-              reason: LedgerErrorReason.BridgeAccountInsufficientBalance,
-              detail: `Insufficient balance. Required ${amount}, available ${balance}`,
-            },
-            custom: {
-              app: config.BRIDGE_APP,
-              method: 'SyncCreditBankAdapter.prepare',
-            }
-          }
-          return result
-        }
-      }
-      
-      const intent: LedgerIntent = {
-        handle: this.sdk.handle.unique(),
-        claims,
-        access: [
-          {
-            action: AccessAction.Sign,
-            signer: {
-              public: config.BRIDGE_PUBLIC_KEY
-            }
-          },
-          {
-            action: AccessAction.Any,
-            signer: {
-              public: this.keyPair.public
-            }
-          }
-        ],
-        custom: {
-          exchange: 1
-        }
-      }
-
-      console.log(intent)
-
+    console.log('purchases', purchases)
+    const bridgeClaims: (TransferClaim | IssueClaim)[] = []
+    let rate: number = 0
+    const requiredBalances: Record<string, number> = {}
+    for (const purchase of purchases) {
+      let newAmount;
       try{
-        await this.sdk.intent
+        rate = await this.exchangeService.getRate(purchase.from, purchase.to)
+        newAmount = await this.exchangeService.calculateRate(purchase.from, purchase.to, rate, purchase.amount)
+      } catch(error){
+        console.log(error)
+        return this.suspend(context, 5)
+      }
+      newAmount = Math.round(newAmount)
+      bridgeClaims.push({
+        action: ClaimAction.Issue,
+        symbol: purchase.to,
+        target: purchase.source,
+        amount: newAmount
+      })
+      bridgeClaims.push({
+        action: ClaimAction.Transfer,
+        symbol: purchase.to,
+        amount: newAmount,
+        source: purchase.source,
+        target: purchase.target
+      })
+      if (requiredBalances[purchase.to]) {
+        requiredBalances[purchase.to] += newAmount
+      } else {
+        requiredBalances[purchase.to] = newAmount
+      }
+    }
+
+    for (const [symbol, amount] of Object.entries(requiredBalances)) {
+      // Skip balance check...
+      continue;
+      const balance = await this.exchangeService.checkBalance(symbol)
+      console.log(symbol, balance, amount)
+      if (balance < amount) {
+        const result: PrepareFailedResult = {
+          status: JobResultStatus.Failed,
+          error: {
+            reason: LedgerErrorReason.BridgeAccountInsufficientBalance,
+            detail: `Insufficient balance. Required ${amount}, available ${balance}`,
+          },
+          custom: {
+            app: config.BRIDGE_APP,
+            method: 'SyncCreditBankAdapter.prepare',
+          }
+        }
+        return result
+      }
+    }
+
+    const bridgeIntent: LedgerIntent = {
+      handle: this.sdk.handle.unique(),
+      claims: bridgeClaims,
+      access: [
+        {
+          action: AccessAction.Sign,
+          signer: {
+            public: config.BRIDGE_PUBLIC_KEY
+          }
+        },
+        {
+          action: AccessAction.Any,
+          signer: {
+            public: this.keyPair.public
+          }
+        }
+      ],
+      custom: {
+        exchange: true,
+        rate
+      }
+    }
+
+    console.log(bridgeIntent)
+
+    try {
+      await this.sdk.intent
         .init()
-        .data(intent)
+        .data(bridgeIntent)
         .hash()
         .sign(
           [
@@ -139,23 +159,22 @@ export class ExchangeCreditAdapter extends SuspendableBankAdapter {
           ]
         )
         .send()
-      } catch(error: any){
-        console.log(error)
-      }
- 
-      const result: PrepareSucceededResult = {
-        status: JobResultStatus.Prepared,
-        /**
-         * Maybe allow only one transaction?
-         * Compose a coreId from all transactions?
-         */
-        custom: {
-          app: config.BRIDGE_APP,
-          method: 'AsyncCreditBankAdapter.prepare',
-        },
-      }
-      return result
-
+    } catch (error: any) {
+      console.log('Error creating intent', error)
     }
+
+    const result: PrepareSucceededResult = {
+      status: JobResultStatus.Prepared,
+      /**
+       * Maybe allow only one transaction?
+       * Compose a coreId from all transactions?
+       */
+      custom: {
+        app: config.BRIDGE_APP,
+        method: 'AsyncCreditBankAdapter.prepare',
+      },
+    }
+    return result
+
   }
 }

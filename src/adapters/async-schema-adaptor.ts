@@ -49,14 +49,15 @@ export class AsyncSchemaBankAdapter extends IBankAdapter {
 
       let isExchange = false
       const exchangeWallets = [
-        'btc.ex',
-        'eth.ex',
-        'cop.ex',
+        'btc.fx',
+        'eth.fx',
+        'cop.fx',
+        'usd.fx',
       ]
 
       if( firstClaim.action === ClaimAction.Transfer ){
         const parts = firstClaim.target.split('@')
-        isExchange = exchangeWallets.includes(parts[1])
+        isExchange = exchangeWallets.includes(parts[1]) || exchangeWallets.includes(firstClaim.target)
       }
 
       if(isExchange || context.intent?.custom?.exchange){

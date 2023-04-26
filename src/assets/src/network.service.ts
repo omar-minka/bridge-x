@@ -44,11 +44,12 @@ export class CryptoNetwork implements ICryptoNetwork {
     // First listening is immediate
     // TODO: Reenable this
     this.pollNetwork()
-    //setInterval(this.pollNetwork.bind(this), this.pollingTime)
+    setInterval(this.pollNetwork.bind(this), this.pollingTime)
     this.enqueueTransactions()
   }
 
   async pollNetwork() {
+    if( global.blockchainPolling !== true ) return
     let transactions
     try{
       transactions = await this.loadTransactions()
